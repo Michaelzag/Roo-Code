@@ -2607,15 +2607,27 @@ export class Cline {
 									}
 								}
 								this.consecutiveMistakeCount = 0
-								const completeMessage = JSON.stringify({
-									type: "use_mcp_tool",
-									serverName: server_name,
-									toolName: tool_name,
-									arguments: mcp_arguments,
-								} satisfies ClineAskUseMcpServer)
-								const didApprove = await askApproval("use_mcp_server", completeMessage)
-								if (!didApprove) {
-									break
+
+								// Get the server object to check if the tool is in the alwaysAllow list
+								const mcpHub = this.providerRef.deref()?.getMcpHub()
+								const server = mcpHub?.getServers().find((s) => s.name === server_name)
+								const tool = server?.tools?.find((t) => t.name === tool_name)
+
+								// Skip approval if tool is marked as alwaysAllow
+								let didApprove = true
+
+								if (!tool?.alwaysAllow) {
+									// Tool is not in alwaysAllow list, ask for approval
+									const completeMessage = JSON.stringify({
+										type: "use_mcp_tool",
+										serverName: server_name,
+										toolName: tool_name,
+										arguments: mcp_arguments,
+									} satisfies ClineAskUseMcpServer)
+									didApprove = await askApproval("use_mcp_server", completeMessage)
+									if (!didApprove) {
+										break
+									}
 								}
 								// now execute the tool
 								await this.say("mcp_server_request_started") // same as browser_action_result
@@ -2677,14 +2689,30 @@ export class Cline {
 									break
 								}
 								this.consecutiveMistakeCount = 0
-								const completeMessage = JSON.stringify({
-									type: "access_mcp_resource",
-									serverName: server_name,
-									uri,
-								} satisfies ClineAskUseMcpServer)
-								const didApprove = await askApproval("use_mcp_server", completeMessage)
-								if (!didApprove) {
-									break
+
+								// Get the server object to check if the resource is in the alwaysAllow list
+								const mcpHub = this.providerRef.deref()?.getMcpHub()
+								const server = mcpHub?.getServers().find((s) => s.name === server_name)
+
+								// Skip approval if the MCP server itself has resources in the alwaysAllow list
+								// Note: Resources don't have individual alwaysAllow flags like tools do
+								const resourceUri = uri.split("://")[0] // Get the resource type prefix
+								const serverConfig = server ? JSON.parse(server.config) : null
+								const alwaysAllowList = serverConfig?.alwaysAllow || []
+
+								// Check if the resource type is in the alwaysAllow list
+								let didApprove = true
+								if (!alwaysAllowList.includes(resourceUri)) {
+									// Resource type is not in alwaysAllow list, ask for approval
+									const completeMessage = JSON.stringify({
+										type: "access_mcp_resource",
+										serverName: server_name,
+										uri,
+									} satisfies ClineAskUseMcpServer)
+									didApprove = await askApproval("use_mcp_server", completeMessage)
+									if (!didApprove) {
+										break
+									}
 								}
 								// now execute the tool
 								await this.say("mcp_server_request_started")

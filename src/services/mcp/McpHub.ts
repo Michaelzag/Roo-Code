@@ -691,10 +691,54 @@ export class McpHub {
 	}
 
 	async toggleToolAlwaysAllow(serverName: string, toolName: string, shouldAllow: boolean): Promise<void> {
+		// Initialize variables before using them to avoid TypeScript errors
+		let settingsPath = ""
+		let tmpFilePath = ""
+		let lockFile = ""
+
 		try {
-			const settingsPath = await this.getMcpSettingsFilePath()
+			settingsPath = await this.getMcpSettingsFilePath()
+			tmpFilePath = `${settingsPath}.tmp`
+			lockFile = `${settingsPath}.lock`
+
+			// Create lock file to prevent race conditions
+			try {
+				await fs.writeFile(lockFile, "locked", { flag: "wx" })
+			} catch (err) {
+				// If lock file exists, wait a bit and try again
+				await delay(500)
+				await fs.writeFile(lockFile, "locked", { flag: "w" })
+			}
+
+			// Ensure the settings file exists and is accessible
+			try {
+				await fs.access(settingsPath)
+			} catch (error) {
+				console.error("Settings file not accessible:", error)
+				throw new Error("Settings file not accessible")
+			}
+
 			const content = await fs.readFile(settingsPath, "utf-8")
-			const config = JSON.parse(content)
+			let config: any
+
+			try {
+				config = JSON.parse(content)
+			} catch (error) {
+				throw new Error("Failed to parse MCP settings file as JSON")
+			}
+
+			// Validate the config structure
+			if (!config || typeof config !== "object") {
+				throw new Error("Invalid config structure")
+			}
+
+			if (!config.mcpServers || typeof config.mcpServers !== "object") {
+				config.mcpServers = {}
+			}
+
+			if (!config.mcpServers[serverName]) {
+				config.mcpServers[serverName] = {}
+			}
 
 			// Initialize alwaysAllow if it doesn't exist
 			if (!config.mcpServers[serverName].alwaysAllow) {
@@ -712,19 +756,46 @@ export class McpHub {
 				alwaysAllow.splice(toolIndex, 1)
 			}
 
-			// Write updated config back to file
-			await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
+			// First write to a temporary file
+			const configJson = JSON.stringify(config, null, 2)
+			await fs.writeFile(tmpFilePath, configJson)
+
+			// Validate the written file is valid JSON
+			try {
+				const writtenContent = await fs.readFile(tmpFilePath, "utf-8")
+				JSON.parse(writtenContent)
+			} catch (error) {
+				throw new Error("Failed to write valid settings file")
+			}
+
+			// Rename temp file to actual file (atomic operation)
+			await fs.rename(tmpFilePath, settingsPath)
 
 			// Update the tools list to reflect the change
 			const connection = this.connections.find((conn) => conn.server.name === serverName)
 			if (connection) {
-				connection.server.tools = await this.fetchToolsList(serverName)
-				await this.notifyWebviewOfServerChanges()
+				try {
+					connection.server.tools = await this.fetchToolsList(serverName)
+					await this.notifyWebviewOfServerChanges()
+				} catch (error) {
+					console.error("Failed to update tools list:", error)
+					// Don't throw here, the settings were saved successfully
+				}
 			}
 		} catch (error) {
 			console.error("Failed to update always allow settings:", error)
-			vscode.window.showErrorMessage("Failed to update always allow settings")
+			vscode.window.showErrorMessage(
+				`Failed to update always allow settings: ${error instanceof Error ? error.message : String(error)}`,
+			)
 			throw error // Re-throw to ensure the error is properly handled
+		} finally {
+			// Clean up: remove lock file and temporary file if they exist
+			try {
+				if (lockFile) await fs.unlink(lockFile).catch(() => {})
+				if (tmpFilePath) await fs.unlink(tmpFilePath).catch(() => {})
+			} catch (error) {
+				// Ignore errors here
+			}
 		}
 	}
 
