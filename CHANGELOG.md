@@ -1,5 +1,34 @@
 # Roo Code Changelog
 
+## [3.21.3] - 2025-06-21
+
+- Add profile-specific context condensing thresholds (thanks @SannidhyaSah!)
+- Fix context length for lmstudio and ollama (thanks @thecolorblue!)
+- Resolve MCP tool eye icon state and hide in chat context (thanks @daniel-lxs!)
+
+## [3.21.2] - 2025-06-20
+
+- Add LaTeX math equation rendering in chat window
+- Add toggle for excluding MCP server tools from the prompt (thanks @Rexarrior!)
+- Add symlink support to list_files tool
+- Fix marketplace blanking after populating
+- Fix recursive directory scanning in @ mention "Add Folder" functionality (thanks @village-way!)
+- Resolve phantom subtask display on cancel during API retry
+- Correct Gemini 2.5 Flash pricing (thanks @daniel-lxs!)
+- Resolve marketplace timeout issues and display installed MCPs (thanks @daniel-lxs!)
+- Onboarding tweaks to emphasize modes (thanks @brunobergher!)
+- Rename 'Boomerang Tasks' to 'Task Orchestration' for clarity
+- Remove command execution from attempt_completion
+- Fix markdown for links followed by punctuation (thanks @xyOz-dev!)
+
+## [3.21.1] - 2025-06-19
+
+- Fix tree-sitter issues that were preventing codebase indexing from working correctly
+- Improve error handling for codebase search embeddings
+- Resolve MCP server execution on Windows with node version managers
+- Default 'Enable MCP Server Creation' to false
+- Rate limit correctly when starting a subtask (thanks @olweraltuve!)
+
 ## [3.21.0] - 2025-06-17
 
 - Add Roo Marketplace to make it easy to discover and install great MCPs and modes!
