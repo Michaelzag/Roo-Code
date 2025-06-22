@@ -1,13 +1,16 @@
 import React from "react"
 import type { ClineMessage } from "@roo-code/types"
 import type { MessageStyle } from "../../theme/chatDefaults"
-import type { ClineSayTool } from "@roo/ExtensionMessage"
-import { safeJsonParse } from "@roo/safeJsonParse"
 import { TimestampExpandableBubbleContent } from "./shared/BubbleContent"
 import { createBubbleComponent } from "./shared/BubbleHelpers"
 
 /**
- * FileWriteContent - Uses shared timestamp-based expandable content
+ * FileWriteContent - Uses shared timestamp-based expandable content with smart content detection
+ *
+ * The SmartContentRenderer automatically detects and renders:
+ * - batchDiffs arrays for multiple file modifications
+ * - Single file operations
+ * - Proper file lists with change counts and formatting
  */
 const FileWriteContent: React.FC<{
 	message: ClineMessage
@@ -17,20 +20,19 @@ const FileWriteContent: React.FC<{
 	isStreaming?: boolean
 	onToggleExpand?: (ts: number) => void
 	onBatchFileResponse?: (response: { [key: string]: boolean }) => void
-}> = ({ message, isExpanded, onToggleExpand }) => {
-	const tool = safeJsonParse<ClineSayTool>(message.text)
-
-	// Extract file information if available
-	const fileName = tool?.path || "file"
-
+}> = ({ message, classification, isExpanded, onToggleExpand }) => {
 	return (
 		<TimestampExpandableBubbleContent
 			message={message}
-			classification={{} as MessageStyle} // Will be set by BubbleUnified
+			classification={classification}
 			icon="edit"
-			title={`File Write: ${fileName}`}
+			title="Roo wants to modify files"
 			isExpanded={isExpanded}
 			onToggleExpand={onToggleExpand}
+			// SmartContentRenderer automatically handles:
+			// - tool.batchDiffs arrays (shows files with change counts)
+			// - tool.path single files
+			// - Proper parsing and formatting
 		/>
 	)
 }

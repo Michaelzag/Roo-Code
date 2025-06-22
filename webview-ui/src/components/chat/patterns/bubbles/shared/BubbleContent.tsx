@@ -116,10 +116,8 @@ export const ExpandableBubbleContent: React.FC<{
 				<BubbleContentWrapper semantic={classification?.semantic}>
 					{renderContent ? (
 						renderContent(message)
-					) : message.text && message.text.trim() ? (
-						<AutoFormattedContent semantic={classification?.semantic} content={message.text} />
 					) : (
-						<Markdown markdown={message.text || ""} partial={message.partial} />
+						<SmartContentRenderer message={message} semantic={classification?.semantic} />
 					)}
 				</BubbleContentWrapper>
 			)}
@@ -241,15 +239,40 @@ export const SmartContentRenderer: React.FC<{
 				}
 			}
 
-			// Detect other arrays
-			const arrays = Object.entries(parsed).filter(([_key, value]) => Array.isArray(value))
+			// Generic array detection - look at all levels for any arrays
+			const findArrays = (obj: any, depth = 0): Array<[string, any[]]> => {
+				if (depth > 2) return [] // Prevent infinite recursion
+
+				const arrays: Array<[string, any[]]> = []
+
+				for (const [key, value] of Object.entries(obj)) {
+					if (Array.isArray(value)) {
+						arrays.push([key, value])
+					} else if (typeof value === "object" && value !== null) {
+						arrays.push(...findArrays(value, depth + 1))
+					}
+				}
+
+				return arrays
+			}
+
+			const arrays = findArrays(parsed)
 			if (arrays.length > 0) {
 				const [arrayKey, arrayValue] = arrays[0]
+
+				// Determine list type based on array content
+				let listType: "files" | "results" | "generic" = "generic"
+				if (arrayKey.toLowerCase().includes("file") || (arrayValue[0] && arrayValue[0].path)) {
+					listType = "files"
+				} else if (arrayKey.toLowerCase().includes("result") || (arrayValue[0] && arrayValue[0].lineSnippet)) {
+					listType = "results"
+				}
+
 				return {
 					type: "list",
-					listType: "generic",
-					items: arrayValue as any[],
-					title: `${(arrayValue as any[]).length} ${arrayKey}`,
+					listType,
+					items: arrayValue,
+					title: `${arrayValue.length} ${arrayKey}`,
 				}
 			}
 
@@ -341,8 +364,10 @@ export const SmartBubbleContent: React.FC<{
 				}}>
 				{renderContent ? (
 					renderContent(message)
+				) : message.text && message.text.trim() ? (
+					<AutoFormattedContent semantic={classification?.semantic} content={message.text} />
 				) : (
-					<SmartContentRenderer message={message} semantic={classification?.semantic} />
+					<Markdown markdown={message.text || ""} partial={message.partial} />
 				)}
 			</div>
 		</div>
@@ -484,6 +509,8 @@ export const TimestampExpandableBubbleContent: React.FC<{
 				<div className="p-4 text-sm text-vscode-foreground leading-relaxed">
 					{renderContent ? (
 						renderContent(message)
+					) : message.text && message.text.trim() ? (
+						<AutoFormattedContent semantic={classification?.semantic} content={message.text} />
 					) : (
 						<Markdown markdown={message.text || ""} partial={message.partial} />
 					)}

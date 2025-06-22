@@ -2,12 +2,11 @@ import React from "react"
 import type { ClineMessage } from "@roo-code/types"
 import type { MessageStyle } from "../../theme/chatDefaults"
 import { SimpleBubbleContent } from "./shared/BubbleContent"
-import { createBubbleComponent } from "./shared/BubbleHelpers"
 import { safeJsonParse } from "@roo/safeJsonParse"
-import { AutoFormattedContent, ThemedList } from "./shared/ThemedComponents"
+import { createBubbleComponent } from "./shared/BubbleHelpers"
 
 /**
- * ApiContent - Uses shared simple content with enhanced API request formatting
+ * ApiContent - Uses shared simple content with proper JSON parsing
  */
 const ApiContent: React.FC<{
 	message: ClineMessage
@@ -15,44 +14,65 @@ const ApiContent: React.FC<{
 	expanded?: boolean
 	onToggleExpand?: () => void
 }> = ({ message, classification }) => {
-	// Parse API request data
-	const apiData = safeJsonParse(message.text) as any
-	const tool = apiData?.tool || "Unknown API"
-	const method = apiData?.method || "REQUEST"
+	// Parse API request data from message text
+	const apiData = safeJsonParse<any>(message.text, {})
 
-	const renderApiContent = () => {
-		const apiInfo = [
-			`🌐 **Operation:** ${tool}`,
-			`📡 **Method:** ${method}`,
-			`⏱️ **Time:** ${new Date(message.ts).toLocaleTimeString()}`,
-		]
+	// Create formatted content following the established pattern
+	const formatApiContent = () => {
+		// Extract meaningful API information if available
+		const request = apiData?.request || message.text
+		const tokensIn = apiData?.tokensIn
+		const tokensOut = apiData?.tokensOut
+		const cost = apiData?.cost
+		const cancelReason = apiData?.cancelReason
 
 		return (
 			<div className="space-y-3">
-				{/* API Operation Badge */}
-				<div className="flex items-center gap-2 mb-3">
-					<span
-						className="px-2 py-1 rounded-md text-xs font-semibold"
-						style={{
-							background: "var(--semantic-accent-color, var(--vscode-charts-orange))20",
-							color: "var(--semantic-text-accent, var(--vscode-foreground))",
-							border: "1px solid var(--semantic-border-color, var(--vscode-panel-border))40",
-						}}>
-						API Request
-					</span>
-				</div>
+				{/* API Status */}
+				{cancelReason && (
+					<div className="flex items-center gap-2">
+						<span className="codicon codicon-warning text-xs opacity-70" />
+						<span className="text-sm font-medium text-orange-400">
+							{cancelReason === "user_cancelled" ? "Cancelled by user" : "Request failed"}
+						</span>
+					</div>
+				)}
 
-				{/* API Details */}
-				<ThemedList semantic="api" items={apiInfo} />
+				{/* Token usage if available */}
+				{(tokensIn || tokensOut || cost) && (
+					<div className="space-y-1">
+						<div className="text-xs opacity-70 font-medium">Usage:</div>
+						<div className="flex flex-wrap gap-3 text-xs">
+							{tokensIn && (
+								<span className="flex items-center gap-1">
+									<span className="codicon codicon-arrow-down text-xs opacity-70" />
+									{tokensIn.toLocaleString()} in
+								</span>
+							)}
+							{tokensOut && (
+								<span className="flex items-center gap-1">
+									<span className="codicon codicon-arrow-up text-xs opacity-70" />
+									{tokensOut.toLocaleString()} out
+								</span>
+							)}
+							{cost && (
+								<span className="flex items-center gap-1">
+									<span className="codicon codicon-symbol-currency text-xs opacity-70" />$
+									{cost.toFixed(4)}
+								</span>
+							)}
+						</div>
+					</div>
+				)}
 
-				{/* Full request data if needed */}
-				{apiData && Object.keys(apiData).length > 2 && (
-					<details className="mt-3">
-						<summary className="text-xs opacity-60 cursor-pointer hover:opacity-80">
-							Show full request data
-						</summary>
-						<AutoFormattedContent semantic="api" content={apiData} className="mt-2 text-xs" />
-					</details>
+				{/* Request details */}
+				{request && request !== message.text && (
+					<div className="space-y-1">
+						<div className="text-xs opacity-70 font-medium">Request:</div>
+						<div className="bg-vscode-textCodeBlock-background border border-vscode-panel-border rounded p-2 text-xs max-h-32 overflow-auto">
+							{typeof request === "string" ? request : JSON.stringify(request, null, 2)}
+						</div>
+					</div>
 				)}
 			</div>
 		)
@@ -64,7 +84,7 @@ const ApiContent: React.FC<{
 			classification={classification}
 			icon="cloud"
 			title="API Request"
-			renderContent={renderApiContent}
+			renderContent={formatApiContent}
 		/>
 	)
 }
