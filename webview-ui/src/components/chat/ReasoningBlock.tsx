@@ -71,26 +71,76 @@ export const ReasoningBlock = ({ content, elapsed, isCollapsed = false, onToggle
 	}, [thought, prevThought])
 
 	return (
-		<div className="bg-vscode-editor-background border border-vscode-border rounded-xs overflow-hidden">
-			<div
-				className="flex items-center justify-between gap-1 px-3 py-2 cursor-pointer text-muted-foreground"
-				onClick={onToggleCollapse}>
-				<div
-					className={`truncate flex-1 transition-opacity duration-200 ${isTransitioning ? "opacity-0" : "opacity-100"}`}>
-					{prevThought}
+		<div
+			style={{
+				borderLeft: "3px solid color-mix(in srgb, var(--vscode-terminal-ansiMagenta) 60%, transparent)",
+				background: "color-mix(in srgb, var(--vscode-terminal-ansiMagenta) 4%, transparent)",
+				padding: "8px 12px",
+				margin: "6px 0",
+				borderRadius: "2px",
+			}}>
+			<div className="flex items-center justify-between gap-2 cursor-pointer" onClick={onToggleCollapse}>
+				<div className="flex items-center gap-2 flex-1 min-w-0">
+					<span
+						className="codicon codicon-lightbulb"
+						style={{
+							color: "var(--vscode-terminal-ansiMagenta)",
+							fontSize: 14,
+						}}
+					/>
+					<div
+						className={`truncate transition-opacity duration-200 ${isTransitioning ? "opacity-0" : "opacity-100"}`}
+						style={{
+							color: "var(--vscode-foreground)",
+							fontSize: "13px",
+						}}>
+						{prevThought}
+					</div>
 				</div>
-				<div className="flex flex-row items-center gap-1">
+				<div className="flex flex-row items-center gap-2 flex-shrink-0">
 					{elapsedRef.current > 1000 && (
-						<>
-							<CounterClockwiseClockIcon className="scale-80" />
-							<div>{t("reasoning.seconds", { count: Math.round(elapsedRef.current / 1000) })}</div>
-						</>
+						<div
+							className="flex items-center gap-1"
+							style={{
+								color: "var(--vscode-terminal-ansiMagenta)",
+								opacity: 0.8,
+							}}>
+							<CounterClockwiseClockIcon style={{ width: "12px", height: "12px" }} />
+							<div style={{ fontSize: "11px" }}>
+								{t("reasoning.seconds", { count: Math.round(elapsedRef.current / 1000) })}
+							</div>
+						</div>
 					)}
-					{isCollapsed ? <CaretDownIcon /> : <CaretUpIcon />}
+					<div style={{ padding: "2px" }}>
+						{isCollapsed ? (
+							<CaretDownIcon
+								style={{
+									color: "var(--vscode-terminal-ansiMagenta)",
+									width: "12px",
+									height: "12px",
+								}}
+							/>
+						) : (
+							<CaretUpIcon
+								style={{
+									color: "var(--vscode-terminal-ansiMagenta)",
+									width: "12px",
+									height: "12px",
+								}}
+							/>
+						)}
+					</div>
 				</div>
 			</div>
 			{!isCollapsed && (
-				<div ref={contentRef} className="px-3 max-h-[160px] overflow-y-auto">
+				<div
+					ref={contentRef}
+					style={{
+						padding: "6px 0 4px 20px",
+						maxHeight: "120px",
+						overflowY: "auto",
+						fontSize: "13px",
+					}}>
 					<MarkdownBlock markdown={content} />
 				</div>
 			)}

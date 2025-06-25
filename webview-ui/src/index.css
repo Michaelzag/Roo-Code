@@ -18,6 +18,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "./preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
+@import "./components/chat/patterns/bubbles/shared/SemanticStyles.css" layer(components);
 @import "katex/dist/katex.min.css";
 
 @plugin "tailwindcss-animate";
@@ -124,6 +125,10 @@
 	--color-vscode-charts-green: var(--vscode-charts-green);
 	--color-vscode-charts-yellow: var(--vscode-charts-yellow);
 
+	--color-vscode-terminal-ansiCyan: var(--vscode-terminal-ansiCyan);
+	--color-vscode-terminal-ansiYellow: var(--vscode-terminal-ansiYellow);
+	--color-vscode-terminal-ansiMagenta: var(--vscode-terminal-ansiMagenta);
+
 	--color-vscode-inputValidation-infoForeground: var(--vscode-inputValidation-infoForeground);
 	--color-vscode-inputValidation-infoBackground: var(--vscode-inputValidation-infoBackground);
 	--color-vscode-inputValidation-infoBorder: var(--vscode-inputValidation-infoBorder);
@@ -192,6 +197,48 @@
 	/* Search result highlighting */
 	.history-item-highlight {
 		@apply underline;
+	}
+
+	/* Chat Typography Classes - Ultra-compact spacing for maximum information density */
+	/* Note: Color is not set here to allow semantic colors to override */
+	.chat-content-typography {
+		font-size: 14px; /* DESIGN_SYSTEM.typography.content */
+		line-height: 1.4; /* Reduced from 1.6 for compactness */
+		font-family: var(--vscode-font-family);
+	}
+
+	.chat-header-typography {
+		font-size: 18px; /* DESIGN_SYSTEM.typography.headerTitle */
+		font-weight: 700;
+		line-height: 1.3; /* Compact header line height */
+		font-family: var(--vscode-font-family);
+	}
+
+	.chat-subheader-typography {
+		font-size: 16px; /* DESIGN_SYSTEM.typography.subheaderTitle */
+		font-weight: 600;
+		line-height: 1.3; /* Compact subheader line height */
+		font-family: var(--vscode-font-family);
+	}
+
+	.chat-standard-typography {
+		font-size: 13px; /* DESIGN_SYSTEM.typography.standardTitle */
+		font-weight: 500;
+		line-height: 1.3; /* Compact standard line height */
+		font-family: var(--vscode-font-family);
+	}
+
+	.chat-badge-typography {
+		font-size: 13px; /* DESIGN_SYSTEM.typography.badge */
+		font-weight: 500;
+		line-height: 1.2; /* Very compact badge line height */
+		font-family: var(--vscode-font-family);
+	}
+
+	.chat-small-typography {
+		font-size: 12px; /* DESIGN_SYSTEM.typography.small */
+		line-height: 1.3; /* Compact small text line height */
+		font-family: var(--vscode-font-family);
 	}
 }
 

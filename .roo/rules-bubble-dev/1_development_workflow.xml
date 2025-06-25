@@ -1,0 +1,231 @@
+<bubble_development_workflow>
+  <overview>
+    Guidance-driven approach for bubble development with embedded enforcement rules.
+    Organized by use case: creating new bubbles, refactoring existing ones, and fine-tuning styling.
+  </overview>
+
+  <use_case_1_new_bubble>
+    <title>Creating a New Bubble</title>
+    
+    <decision_tree>
+      <layout_choice>
+        <question>Does your content need to expand/collapse?</question>
+        <no>Use SimpleBubbleContent - for status messages, simple operations</no>
+        <yes_user_controlled>Use ExpandableBubbleContent - user decides when to expand</yes_user_controlled>
+        <yes_automatic>Use TimestampExpandableBubbleContent - tied to message timing</yes_automatic>
+      </layout_choice>
+
+      <semantic_type_choice>
+        <question>What operation does this bubble represent?</question>
+        <file_operations>file-read, file-write, file-search, codebase-search</file_operations>
+        <user_interactions>user-input, completion, thinking</user_interactions>
+        <system_operations>command, api, mcp, error</system_operations>
+        <unsure>context (safe fallback)</unsure>
+      </semantic_type_choice>
+
+      <content_limits>
+        <question>How much content will this bubble typically show?</question>
+        <short_content>maxLines: 10-15, no collapse needed</short_content>
+        <medium_content>maxLines: 20-30, previewLines: 5-10</medium_content>
+        <long_content>maxLines: 30+, collapsedByDefault: true, previewLines: 3-5</long_content>
+      </content_limits>
+    </decision_tree>
+
+    <workflow_steps>
+      <step number="1">
+        <title>Create Content Component</title>
+        <pattern>
+          const YourContent: React.FC&lt;{
+            message: ClineMessage
+            classification: MessageStyle
+          }&gt; = ({ message, classification }) =&gt; (
+            &lt;SimpleBubbleContent
+              message={message}
+              classification={classification}
+              icon="your-icon"
+              title="Your Title"
+              renderContent={() =&gt; (
+                &lt;div className="space-y-2"&gt;
+                  {/* ONLY Tailwind classes here */}
+                &lt;/div&gt;
+              )}
+            /&gt;
+          )
+        </pattern>
+        <enforcement_rules>
+          <rule>MUST use a layout component (SimpleBubbleContent, ExpandableBubbleContent, or TimestampExpandableBubbleContent)</rule>
+          <rule>MUST use only Tailwind classes in renderContent</rule>
+          <rule>MUST use vscode-* color classes for theming</rule>
+        </enforcement_rules>
+      </step>
+
+      <step number="2">
+        <title>Apply Factory Pattern</title>
+        <pattern>
+          export const YourBubble = createBubbleComponent(
+            "semantic-type",  // Choose from existing types
+            "blue",          // Fallback (rarely used)
+            {
+              maxLines: 30,
+              collapsedByDefault: false,
+              previewLines: 5
+            }
+          )(YourContent)
+        </pattern>
+        <enforcement_rules>
+          <rule>MUST use createBubbleComponent factory</rule>
+          <rule>MUST specify appropriate content limits</rule>
+          <rule>MUST use existing semantic types (don't create new ones lightly)</rule>
+        </enforcement_rules>
+      </step>
+
+      <step number="3">
+        <title>Export and Route</title>
+        <locations>
+          <export>webview-ui/src/components/chat/patterns/bubbles/index.tsx</export>
+          <routing>webview-ui/src/components/chat/ChatMessage.tsx</routing>
+        </locations>
+        <enforcement_rules>
+          <rule>MUST export from index.tsx</rule>
+          <rule>MUST add case to ChatMessage.tsx switch statement</rule>
+          <rule>MUST use same semantic type in routing</rule>
+        </enforcement_rules>
+      </step>
+
+      <step number="4">
+        <title>Test Integration</title>
+        <validation_checklist>
+          <item>Bubble appears with correct semantic theming</item>
+          <item>Content limits work with large content</item>
+          <item>Interactive elements respond properly</item>
+          <item>Styling consistent with other bubbles</item>
+        </validation_checklist>
+      </step>
+    </workflow_steps>
+  </use_case_1_new_bubble>
+
+  <use_case_2_refactoring>
+    <title>Refactoring Existing Bubble</title>
+    
+    <analysis_questions>
+      <performance>Is the bubble slow with large content? → Check content limits</performance>
+      <layout>Is the content structure confusing? → Consider different layout component</layout>
+      <theming>Does it look inconsistent? → Verify semantic type usage</theming>
+      <interaction>Are interactions clunky? → Review event handling patterns</interaction>
+    </analysis_questions>
+
+    <common_refactoring_patterns>
+      <content_limiting>
+        <when>Bubble becomes slow or overwhelming with large content</when>
+        <solution>Add or adjust maxLines, previewLines, collapsedByDefault</solution>
+        <enforcement>MUST not remove content limiting for bubbles that can show large content</enforcement>
+      </content_limiting>
+
+      <layout_migration>
+        <simple_to_expandable>When content grows beyond simple display needs</simple_to_expandable>
+        <expandable_to_timestamp>When expansion needs to tie to message timing</expandable_to_timestamp>
+        <enforcement>MUST maintain existing prop interfaces when possible</enforcement>
+      </layout_migration>
+
+      <semantic_type_changes>
+        <when>Bubble purpose has evolved or was initially misclassified</when>
+        <process>Update semantic type in factory AND routing</process>
+        <enforcement>MUST update both factory call and ChatMessage routing consistently</enforcement>
+      </semantic_type_changes>
+    </common_refactoring_patterns>
+
+    <refactoring_safety_rules>
+      <rule>MUST test with existing message data</rule>
+      <rule>MUST verify no breaking changes to component interface</rule>
+      <rule>MUST maintain backwards compatibility for streaming/partial states</rule>
+    </refactoring_safety_rules>
+  </use_case_2_refactoring>
+
+  <use_case_3_styling>
+    <title>Fine-tuning Bubble Styling</title>
+
+    <styling_scope>
+      <what_you_can_change>
+        <content_layout>Spacing, typography, element arrangement within renderContent</content_layout>
+        <interactive_elements>Button styling, hover states, form inputs</interactive_elements>
+        <content_display>Code blocks, lists, badges using Tailwind + VSCode classes</content_display>
+      </what_you_can_change>
+
+      <what_is_automatic>
+        <theming>Colors, gradients, shadows (handled by semantic type)</theming>
+        <container>Borders, backgrounds, overall bubble styling</container>
+        <expansion>Expand/collapse UI and functionality</expansion>
+      </what_is_automatic>
+    </styling_scope>
+
+    <styling_enforcement_rules>
+      <tailwind_only>
+        <rule>MUST use only Tailwind classes in content components</rule>
+        <violation>style={{ fontSize: "14px" }}</violation>
+        <correct>className="text-sm"</correct>
+      </tailwind_only>
+
+      <vscode_integration>
+        <rule>MUST use vscode-* color classes</rule>
+        <violation>className="text-white bg-blue-500"</violation>
+        <correct>className="text-vscode-foreground bg-vscode-input-background"</correct>
+      </vscode_integration>
+
+      <interactive_patterns>
+        <rule>MUST include hover/focus states for interactive elements</rule>
+        <pattern>hover:bg-vscode-input-background/70 hover:border-vscode-focusBorder/50</pattern>
+        <pattern>focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50</pattern>
+      </interactive_patterns>
+
+      <semantic_theming_access>
+        <when>Need semantic-aware styling (badges, special borders)</when>
+        <allowed>style={{ borderColor: 'var(--semantic-primary-color)' + '40' }}</allowed>
+        <rule>MUST use CSS custom properties, not hardcoded colors</rule>
+      </semantic_theming_access>
+    </styling_enforcement_rules>
+
+    <common_styling_violations>
+      <inline_styles>
+        <problem>Using style prop for layout/colors</problem>
+        <fix>Convert to Tailwind classes</fix>
+      </inline_styles>
+      
+      <hardcoded_colors>
+        <problem>Using arbitrary color values</problem>
+        <fix>Use VSCode theme variables via Tailwind classes</fix>
+      </hardcoded_colors>
+      
+      <missing_states>
+        <problem>No hover/focus styling on interactive elements</problem>
+        <fix>Add hover: and focus: variants</fix>
+      </missing_states>
+    </common_styling_violations>
+  </use_case_3_styling>
+
+  <validation_checklists>
+    <new_bubble_checklist>
+      <item>Uses layout component (not custom JSX structure)</item>
+      <item>Uses createBubbleComponent factory</item>
+      <item>Has appropriate content limits</item>
+      <item>Uses existing semantic type</item>
+      <item>Exported from index.tsx</item>
+      <item>Routed in ChatMessage.tsx</item>
+      <item>Content uses only Tailwind + VSCode classes</item>
+    </new_bubble_checklist>
+
+    <refactoring_checklist>
+      <item>Maintains existing component interface</item>
+      <item>No breaking changes to message handling</item>
+      <item>Performance improved or maintained</item>
+      <item>Styling remains consistent</item>
+    </refactoring_checklist>
+
+    <styling_checklist>
+      <item>No inline styles in content components</item>
+      <item>Only VSCode color classes used</item>
+      <item>Interactive elements have hover/focus states</item>
+      <item>Spacing uses consistent Tailwind patterns</item>
+      <item>No hardcoded colors or arbitrary values</item>
+    </styling_checklist>
+  </validation_checklists>
+</bubble_development_workflow>
