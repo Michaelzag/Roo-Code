@@ -5,6 +5,7 @@ import type { MessageStyle } from "../../theme/chatDefaults"
 import { ExpandableBubbleContent } from "./shared/BubbleContent"
 import { createBubbleComponent } from "./shared/BubbleHelpers"
 import { AutoFormattedContent } from "./shared/ThemedComponents"
+import { ScaledBadge, ScaledText, ScaledCode } from "./shared/TypographyInheritance"
 
 /**
  * ErrorContent - Intelligent error handling for all error types
@@ -56,15 +57,15 @@ const ErrorContent: React.FC<{
 		<div className="space-y-3">
 			{/* Error Type Badge */}
 			<div className="flex items-center gap-2">
-				<span className="px-2 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
-					{config.badge}
-				</span>
-				<span className="text-xs opacity-60">{new Date(message.ts).toLocaleTimeString()}</span>
+				<ScaledBadge variant="error">{config.badge}</ScaledBadge>
+				<ScaledText context="micro" className="opacity-60">
+					{new Date(message.ts).toLocaleTimeString()}
+				</ScaledText>
 			</div>
 
 			{/* Formatted Error Content */}
-			<div
-				className="font-mono text-xs leading-relaxed p-3 rounded-md border-l-3 border-red-400"
+			<ScaledCode
+				className="border-l-3 border-red-400"
 				style={{
 					background: "var(--semantic-background, var(--vscode-textCodeBlock-background))",
 					borderColor: "var(--semantic-border-color, #ef4444)",
@@ -78,7 +79,7 @@ const ErrorContent: React.FC<{
 					semantic="error"
 					content={message.text || `Unknown ${config.badge.toLowerCase()} occurred`}
 				/>
-			</div>
+			</ScaledCode>
 		</div>
 	)
 

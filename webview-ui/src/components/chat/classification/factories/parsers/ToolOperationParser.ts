@@ -12,14 +12,25 @@ export class ToolOperationParser implements MessageParserFactory {
 	priority = 100 // High priority - should run early
 
 	canParse(message: ClineMessage): boolean {
-		// Handle ask:tool messages
+		// Handle ask:tool messages - be more permissive
 		if (message.type === "ask" && message.ask === "tool") {
+			// Quick check: must look like JSON before attempting to parse
+			const text = message.text?.trim()
+			if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+				return false
+			}
 			const toolData = safeJsonParse<any>(message.text)
-			return !!(toolData && toolData.tool)
+			// Accept any valid JSON with a tool field, even if tool is empty/undefined
+			return !!(toolData && toolData.tool !== undefined)
 		}
 
 		// Handle say messages that contain tool JSON
 		if (message.type === "say" && message.text) {
+			// Quick check: must look like JSON before attempting to parse
+			const text = message.text.trim()
+			if (!text.startsWith("{") && !text.startsWith("[")) {
+				return false
+			}
 			const toolData = safeJsonParse<any>(message.text)
 			return !!(toolData && toolData.tool)
 		}
@@ -102,7 +113,9 @@ export class ToolOperationParser implements MessageParserFactory {
 				// Command operations
 				toolData.command !== undefined ||
 				// Mode operations
-				toolData.mode !== undefined)
+				toolData.mode !== undefined ||
+				// Codebase search operations
+				toolData.tool === "codebaseSearch")
 		)
 	}
 

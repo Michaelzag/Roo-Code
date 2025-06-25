@@ -16,7 +16,8 @@
 			"preLaunchTask": "${defaultBuildTask}",
 			"env": {
 				"NODE_ENV": "development",
-				"VSCODE_DEBUG_MODE": "true"
+				"VSCODE_DEBUG_MODE": "true",
+				"PATH": "/home/michael/.nvm/versions/node/v20.19.2/bin:/usr/local/bin:/usr/bin:/bin:${env:PATH}"
 			},
 			"resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
 			"presentation": {

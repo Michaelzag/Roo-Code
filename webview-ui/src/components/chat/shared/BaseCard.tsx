@@ -1,6 +1,6 @@
 import React from "react"
 import { cn } from "@src/lib/utils"
-import { DESIGN_TOKENS } from "../theme/chatDefaults"
+import { DESIGN_SYSTEM } from "../theme/chatDefaults"
 
 interface BaseCardProps {
 	header?: React.ReactNode
@@ -34,16 +34,16 @@ export const BaseCard: React.FC<BaseCardProps> = ({
 		<div
 			className={cn("overflow-hidden position-relative", className)}
 			style={{
-				margin: DESIGN_TOKENS.spacing.cardMargin,
-				border: `${DESIGN_TOKENS.borders.card} ${borderColor}`,
-				borderRadius: DESIGN_TOKENS.radius.card,
+				margin: DESIGN_SYSTEM.spacing.cardMargin,
+				border: `${DESIGN_SYSTEM.borders.card} ${borderColor}`,
+				borderRadius: DESIGN_SYSTEM.radius.card,
 				background: backgroundColor,
 				boxShadow: shadowColor ? `0 3px 12px color-mix(in srgb, ${shadowColor} 25%, transparent)` : undefined,
 				cursor: onClick ? "pointer" : "default",
 			}}
 			onClick={onClick}>
 			{header && <div style={{ padding: "16px 16px 12px" }}>{header}</div>}
-			<div style={{ padding: DESIGN_TOKENS.spacing.contentPadding, paddingTop: 0 }}>{children}</div>
+			<div style={{ padding: DESIGN_SYSTEM.spacing.contentPadding, paddingTop: 0 }}>{children}</div>
 		</div>
 	)
 }

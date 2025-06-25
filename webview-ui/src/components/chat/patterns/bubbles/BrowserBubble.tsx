@@ -14,11 +14,19 @@ const BrowserContent: React.FC<{
 	expanded?: boolean
 	onToggleExpand?: () => void
 }> = ({ message, classification }) => {
-	// Parse browser action data from message text
-	const browserData = safeJsonParse<any>(message.text, {})
+	// Quick check: must look like JSON before attempting to parse
+	const text = message.text?.trim()
+	const isValidJson = text && (text.startsWith("{") || text.startsWith("["))
+
+	// Parse browser action data from message text only if it looks like JSON
+	const browserData = isValidJson ? safeJsonParse<any>(message.text, {}) : {}
 
 	// Create formatted content following the established pattern
 	const formatBrowserContent = () => {
+		// If not valid JSON, show plain text
+		if (!isValidJson) {
+			return <div className="text-sm text-vscode-foreground">{message.text || "No browser action data"}</div>
+		}
 		// Extract meaningful browser information if available
 		const action = browserData?.action || browserData?.tool
 		const coordinate = browserData?.coordinate

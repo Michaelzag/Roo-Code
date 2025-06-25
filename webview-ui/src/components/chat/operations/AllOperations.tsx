@@ -206,7 +206,7 @@ export const AllOperations: React.FC<AllOperationsProps> = ({
 					<ThinkingBubble
 						message={message}
 						classification={classification}
-						expanded={reasoningExpanded}
+						isExpanded={reasoningExpanded}
 						onToggleExpand={() => setReasoningExpanded(!reasoningExpanded)}
 					/>
 				)

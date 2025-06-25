@@ -4,6 +4,8 @@ import type { MessageStyle } from "../../theme/chatDefaults"
 import { SimpleBubbleContent } from "./shared/BubbleContent"
 import { safeJsonParse } from "@roo/safeJsonParse"
 import { createBubbleComponent } from "./shared/BubbleHelpers"
+import { DESIGN_SYSTEM } from "../../theme/chatDefaults"
+import { TypographyText, MetadataText, CodeText } from "./shared/TypographyContext"
 
 /**
  * ApiContent - Uses shared simple content with proper JSON parsing
@@ -14,11 +16,19 @@ const ApiContent: React.FC<{
 	expanded?: boolean
 	onToggleExpand?: () => void
 }> = ({ message, classification }) => {
-	// Parse API request data from message text
-	const apiData = safeJsonParse<any>(message.text, {})
+	// Quick check: must look like JSON before attempting to parse
+	const text = message.text?.trim()
+	const isValidJson = text && (text.startsWith("{") || text.startsWith("["))
+
+	// Parse API request data from message text only if it looks like JSON
+	const apiData = isValidJson ? safeJsonParse<any>(message.text, {}) : {}
 
 	// Create formatted content following the established pattern
 	const formatApiContent = () => {
+		// If not valid JSON, show plain text
+		if (!isValidJson) {
+			return <div className="text-sm text-vscode-foreground">{message.text || "No API data"}</div>
+		}
 		// Extract meaningful API information if available
 		const request = apiData?.request || message.text
 		const tokensIn = apiData?.tokensIn
@@ -27,39 +37,41 @@ const ApiContent: React.FC<{
 		const cancelReason = apiData?.cancelReason
 
 		return (
-			<div className="space-y-3">
+			<div className={DESIGN_SYSTEM.spacing.componentSectionGap}>
 				{/* API Status */}
 				{cancelReason && (
 					<div className="flex items-center gap-2">
 						<span className="codicon codicon-warning text-xs opacity-70" />
-						<span className="text-sm font-medium text-orange-400">
+						<TypographyText context="emphasis" className="text-orange-400">
 							{cancelReason === "user_cancelled" ? "Cancelled by user" : "Request failed"}
-						</span>
+						</TypographyText>
 					</div>
 				)}
 
 				{/* Token usage if available */}
 				{(tokensIn || tokensOut || cost) && (
 					<div className="space-y-1">
-						<div className="text-xs opacity-70 font-medium">Usage:</div>
-						<div className="flex flex-wrap gap-3 text-xs">
+						<TypographyText context="metadata" weight="medium">
+							Usage:
+						</TypographyText>
+						<div className="flex flex-wrap gap-3">
 							{tokensIn && (
-								<span className="flex items-center gap-1">
+								<MetadataText className="flex items-center gap-1">
 									<span className="codicon codicon-arrow-down text-xs opacity-70" />
 									{tokensIn.toLocaleString()} in
-								</span>
+								</MetadataText>
 							)}
 							{tokensOut && (
-								<span className="flex items-center gap-1">
+								<MetadataText className="flex items-center gap-1">
 									<span className="codicon codicon-arrow-up text-xs opacity-70" />
 									{tokensOut.toLocaleString()} out
-								</span>
+								</MetadataText>
 							)}
 							{cost && (
-								<span className="flex items-center gap-1">
+								<MetadataText className="flex items-center gap-1">
 									<span className="codicon codicon-symbol-currency text-xs opacity-70" />$
 									{cost.toFixed(4)}
-								</span>
+								</MetadataText>
 							)}
 						</div>
 					</div>
@@ -68,10 +80,12 @@ const ApiContent: React.FC<{
 				{/* Request details */}
 				{request && request !== message.text && (
 					<div className="space-y-1">
-						<div className="text-xs opacity-70 font-medium">Request:</div>
-						<div className="bg-vscode-textCodeBlock-background border border-vscode-panel-border rounded p-2 text-xs max-h-32 overflow-auto">
+						<TypographyText context="metadata" weight="medium">
+							Request:
+						</TypographyText>
+						<CodeText className="max-h-32 overflow-auto border border-vscode-panel-border rounded">
 							{typeof request === "string" ? request : JSON.stringify(request, null, 2)}
-						</div>
+						</CodeText>
 					</div>
 				)}
 			</div>

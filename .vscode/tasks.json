@@ -17,7 +17,7 @@
 		{
 			"label": "watch:webview",
 			"type": "shell",
-			"command": "pnpm --filter @roo-code/vscode-webview dev",
+			"command": "source ~/.zshrc && pnpm --filter @roo-code/vscode-webview dev",
 			"group": "build",
 			"problemMatcher": {
 				"owner": "vite",
@@ -39,7 +39,7 @@
 		{
 			"label": "watch:bundle",
 			"type": "shell",
-			"command": "npx turbo watch:bundle",
+			"command": "source ~/.zshrc && pnpm turbo watch:bundle",
 			"group": "build",
 			"problemMatcher": {
 				"owner": "esbuild",
@@ -61,7 +61,7 @@
 		{
 			"label": "watch:tsc",
 			"type": "shell",
-			"command": "npx turbo watch:tsc",
+			"command": "source ~/.zshrc && pnpm turbo watch:tsc",
 			"group": "build",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,

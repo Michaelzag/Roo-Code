@@ -2,7 +2,7 @@ import React from "react"
 import { cn } from "@src/lib/utils"
 import type { ClineMessage } from "@roo-code/types"
 import type { MessageStyle } from "../theme/chatDefaults"
-import { DESIGN_TOKENS, getSemanticTheme } from "../theme/chatDefaults"
+import { DESIGN_SYSTEM, getSemanticTheme } from "../theme/chatDefaults"
 import { useChatTheme } from "../theme/useChatTheme"
 import { Markdown } from "../Markdown"
 
@@ -68,7 +68,7 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 			return `linear-gradient(90deg, ${colorTheme.icon}, ${colorTheme.icon.replace(/[0-9.]+$/, "0.8")}, ${colorTheme.icon})`
 		}
 
-		const theme = DESIGN_TOKENS.themes[classification.theme]
+		const theme = DESIGN_SYSTEM.themes[classification.theme]
 		if ("accent" in theme.gradients) {
 			return theme.gradients.accent
 		}
@@ -89,18 +89,19 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 	const variantClasses = {
 		user: cn(
 			"ml-auto max-w-[85%] rounded-br-md",
-			DESIGN_TOKENS.spacing.bubblePadding,
-			DESIGN_TOKENS.spacing.bubbleMargin,
+			DESIGN_SYSTEM.spacing.bubblePadding,
+			DESIGN_SYSTEM.spacing.bubbleMargin,
 			colorTheme.bubble,
 		),
 		agent: cn(
 			"mr-auto max-w-[85%] rounded-tl-md",
-			DESIGN_TOKENS.spacing.bubblePadding,
-			DESIGN_TOKENS.spacing.bubbleMargin,
+			DESIGN_SYSTEM.spacing.bubblePadding,
+			DESIGN_SYSTEM.spacing.bubbleMargin,
 			colorTheme.bubble,
 		),
 		work: cn(
-			"max-w-[95%] rounded-xl my-1.5 overflow-hidden",
+			"max-w-[95%] rounded-xl overflow-hidden",
+			DESIGN_SYSTEM.spacing.workMargin,
 			// Use semantic color theme for all colors - no hardcoded overrides
 			colorTheme.bubble,
 		),
@@ -127,17 +128,17 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 
 		if (variant === "override") {
 			return {
-				margin: DESIGN_TOKENS.spacing.cardMargin,
+				margin: DESIGN_SYSTEM.spacing.cardMargin,
 				border: classification.theme
-					? DESIGN_TOKENS.themes[classification.theme].borders.main
-					: `${DESIGN_TOKENS.borders.card} ${colorTheme.border.replace("border-l-4 border-l-", "")}`,
-				borderRadius: DESIGN_TOKENS.radius.card,
+					? DESIGN_SYSTEM.themes[classification.theme].borders.main
+					: `${DESIGN_SYSTEM.borders.card} ${colorTheme.border.replace("border-l-4 border-l-", "")}`,
+				borderRadius: DESIGN_SYSTEM.radius.card,
 				background: classification.theme
-					? `color-mix(in srgb, ${DESIGN_TOKENS.themes[classification.theme].colors.primary} ${DESIGN_TOKENS.themes[classification.theme].effects.backgroundMix}, var(--vscode-editor-background))`
-					: `color-mix(in srgb, ${colorTheme.icon} ${DESIGN_TOKENS.colorMix.background}, var(--vscode-editor-background))`,
+					? `color-mix(in srgb, ${DESIGN_SYSTEM.themes[classification.theme].colors.primary} ${DESIGN_SYSTEM.themes[classification.theme].effects.backgroundMix}, var(--vscode-editor-background))`
+					: `color-mix(in srgb, ${colorTheme.icon} ${DESIGN_SYSTEM.colorMix.background}, var(--vscode-editor-background))`,
 				boxShadow: classification.theme
-					? DESIGN_TOKENS.themes[classification.theme].shadows.glow
-					: `${DESIGN_TOKENS.shadows.card} color-mix(in srgb, ${colorTheme.icon} ${DESIGN_TOKENS.colorMix.shadow}, transparent)`,
+					? DESIGN_SYSTEM.themes[classification.theme].shadows.glow
+					: `${DESIGN_SYSTEM.shadows.card} color-mix(in srgb, ${colorTheme.icon} ${DESIGN_SYSTEM.colorMix.shadow}, transparent)`,
 				position: "relative" as const,
 				...baseStyle,
 			}
@@ -147,8 +148,10 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 		if (variant === "work" && classification.semantic && semanticTheme) {
 			return {
 				background: semanticTheme.background,
+				border: (semanticTheme as any).borderStyle || `1px solid ${semanticTheme.borderColor}`,
 				borderLeft: `3px solid ${semanticTheme.borderColor}`,
 				boxShadow: `0 2px 8px ${semanticTheme.shadowColor}`,
+				borderRadius: "8px",
 				position: "relative" as const,
 				// CSS custom properties for enhanced styling
 				["--semantic-primary-color" as any]: semanticTheme.primary,
@@ -178,7 +181,7 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 						left: 0,
 						right: 0,
 						height: classification.theme
-							? DESIGN_TOKENS.themes[classification.theme].borders.accent
+							? DESIGN_SYSTEM.themes[classification.theme].borders.accent
 							: classification.component === "task-completed"
 								? "3px"
 								: "2px",
@@ -189,7 +192,7 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 
 			{/* Header section - supports component overriding */}
 			{(HeaderComponent || header) && (
-				<div className={variant === "override" ? DESIGN_TOKENS.spacing.overrideHeaderPadding : ""}>
+				<div className={variant === "override" ? DESIGN_SYSTEM.spacing.overrideHeaderPadding : ""}>
 					{HeaderComponent ? (
 						<HeaderComponent message={message} classification={classification} {...(headerProps || {})} />
 					) : (
@@ -201,7 +204,7 @@ export const BubbleUnified: React.FC<BubbleUnifiedProps> = ({
 			{/* Content section - supports component overriding */}
 			<div
 				className={cn(
-					variant === "override" ? DESIGN_TOKENS.spacing.overrideContentPadding : "",
+					variant === "override" ? DESIGN_SYSTEM.spacing.overrideContentPadding : "",
 					contentClasses[variant],
 				)}>
 				{ContentComponent ? (

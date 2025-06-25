@@ -1,0 +1,319 @@
+<quick_examples>
+  <overview>
+    Fast, copy-paste examples for common bubble development tasks.
+    These are based on real working bubbles in the codebase.
+  </overview>
+
+  <new_simple_bubble>
+    <title>Creating a Simple Status Bubble</title>
+    <use_case>Status messages, notifications, simple operations</use_case>
+    
+    <complete_example>
+      <content_component>
+        const StatusContent: React.FC&lt;{
+          message: ClineMessage
+          classification: MessageStyle
+        }&gt; = ({ message, classification }) =&gt; (
+          &lt;SimpleBubbleContent
+            message={message}
+            classification={classification}
+            icon="info"
+            title="Status Update"
+            renderContent={() =&gt; (
+              &lt;div className="text-sm text-vscode-foreground"&gt;
+                {message.text}
+              &lt;/div&gt;
+            )}
+          /&gt;
+        )
+      </content_component>
+
+      <factory_application>
+        export const StatusBubble = createBubbleComponent(
+          "context",
+          "blue",
+          { maxLines: 10, previewLines: 3 }
+        )(StatusContent)
+      </factory_application>
+
+      <integration>
+        // In index.tsx:
+        export { StatusBubble } from "./StatusBubble"
+        
+        // In ChatMessage.tsx:
+        case 'context':
+          return &lt;StatusBubble message={message} classification={style} /&gt;
+      </integration>
+    </complete_example>
+  </new_simple_bubble>
+
+  <new_expandable_bubble>
+    <title>Creating an Expandable Content Bubble</title>
+    <use_case>File contents, detailed results, large content</use_case>
+    
+    <complete_example>
+      <content_component>
+        const FileContent: React.FC&lt;{
+          message: ClineMessage
+          classification: MessageStyle
+          expanded?: boolean
+          onToggleExpand?: () =&gt; void
+        }&gt; = ({ message, classification, expanded, onToggleExpand }) =&gt; (
+          &lt;ExpandableBubbleContent
+            message={message}
+            classification={classification}
+            icon="file"
+            title="File Operation"
+            expanded={expanded}
+            onToggleExpand={onToggleExpand}
+            renderContent={(msg) =&gt; (
+              &lt;div className="space-y-2"&gt;
+                &lt;div className="text-sm text-vscode-foreground"&gt;
+                  Processing: {msg.text}
+                &lt;/div&gt;
+                {/* SmartContentRenderer will handle content limiting automatically */}
+              &lt;/div&gt;
+            )}
+          /&gt;
+        )
+      </content_component>
+
+      <factory_application>
+        export const FileBubble = createBubbleComponent&lt;{
+          expanded?: boolean
+          onToggleExpand?: () =&gt; void
+        }&gt;(
+          "file-read",
+          "cyan",
+          {
+            maxLines: 50,
+            collapsedByDefault: true,
+            previewLines: 10
+          }
+        )(FileContent)
+      </factory_application>
+    </complete_example>
+  </new_expandable_bubble>
+
+  <interactive_bubble>
+    <title>Creating an Interactive Bubble with Buttons</title>
+    <use_case>Suggestions, form inputs, user actions</use_case>
+    
+    <complete_example>
+      <content_component>
+        const SuggestionContent: React.FC&lt;{
+          message: ClineMessage
+          classification: MessageStyle
+          onSuggestionClick?: (answer: string) =&gt; void
+        }&gt; = ({ message, onSuggestionClick }) =&gt; {
+          const data = JSON.parse(message.text || '{}')
+          
+          return (
+            &lt;SimpleBubbleContent
+              message={message}
+              classification={classification}
+              icon="question"
+              title="Choose an Option"
+              renderContent={() =&gt; (
+                &lt;div className="space-y-3"&gt;
+                  &lt;div className="text-sm text-vscode-foreground"&gt;
+                    {data.question || "Please select an option:"}
+                  &lt;/div&gt;
+                  
+                  {data.suggestions?.map((suggestion: string, index: number) =&gt; (
+                    &lt;button
+                      key={index}
+                      onClick={() =&gt; onSuggestionClick?.(suggestion)}
+                      className="w-full text-left p-3 rounded border border-vscode-panel-border
+                                 bg-vscode-input-background/50 text-sm text-vscode-foreground
+                                 hover:bg-vscode-input-background/70 hover:border-vscode-focusBorder/50
+                                 focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50
+                                 transition-all duration-150"&gt;
+                      &lt;div className="flex items-start gap-2"&gt;
+                        &lt;span className="codicon codicon-circle-small mt-0.5 text-xs opacity-70" /&gt;
+                        &lt;span&gt;{suggestion}&lt;/span&gt;
+                      &lt;/div&gt;
+                    &lt;/button&gt;
+                  ))}
+                &lt;/div&gt;
+              )}
+            /&gt;
+          )
+        }
+      </content_component>
+
+      <factory_application>
+        export const SuggestionBubble = createBubbleComponent&lt;{
+          onSuggestionClick?: (answer: string) =&gt; void
+        }&gt;(
+          "completion",
+          "green",
+          { maxLines: 20, previewLines: 5 }
+        )(SuggestionContent)
+      </factory_application>
+    </complete_example>
+  </interactive_bubble>
+
+  <semantic_theming_badge>
+    <title>Adding Semantic-Aware Badge</title>
+    <use_case>Status indicators, operation types, progress badges</use_case>
+    
+    <example>
+      &lt;span
+        className="px-2 py-1 rounded-md text-xs font-semibold"
+        style={{
+          background: "var(--semantic-accent-color)20",
+          color: "var(--semantic-text-accent)",
+          border: "1px solid var(--semantic-border-color)40"
+        }}&gt;
+        💭 Processing
+      &lt;/span&gt;
+    </example>
+    
+    <note>Badge automatically adapts to bubble's semantic theme colors</note>
+  </semantic_theming_badge>
+
+  <common_content_patterns>
+    <code_display>
+      <title>Displaying Code Content</title>
+      <pattern>
+        &lt;pre className="bg-vscode-textCodeBlock-background p-3 rounded overflow-x-auto
+                        font-mono text-xs leading-relaxed text-vscode-foreground"&gt;
+          {message.text}
+        &lt;/pre&gt;
+      </pattern>
+    </code_display>
+
+    <data_list>
+      <title>Displaying List of Items</title>
+      <pattern>
+        &lt;div className="space-y-1"&gt;
+          {items.map((item, index) =&gt; (
+            &lt;div key={index} className="flex items-center gap-2 py-1 px-2
+                                        hover:bg-vscode-input-background/30 rounded"&gt;
+              &lt;span className="codicon codicon-file text-xs opacity-70" /&gt;
+              &lt;span className="text-sm text-vscode-foreground truncate"&gt;
+                {item.name}
+              &lt;/span&gt;
+            &lt;/div&gt;
+          ))}
+        &lt;/div&gt;
+      </pattern>
+    </data_list>
+
+    <form_input>
+      <title>Interactive Form Input</title>
+      <pattern>
+        &lt;input
+          type="text"
+          placeholder="Enter value..."
+          className="w-full p-2 rounded border border-vscode-panel-border
+                     bg-vscode-input-background text-vscode-foreground
+                     placeholder-vscode-descriptionForeground
+                     focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder"
+          onChange={handleChange}
+        /&gt;
+      </pattern>
+    </form_input>
+  </common_content_patterns>
+
+  <refactoring_examples>
+    <add_content_limiting>
+      <before>
+        // Bubble without content limiting
+        export const MyBubble = createBubbleComponent(
+          "semantic-type",
+          "color",
+          {} // No limits!
+        )(MyContent)
+      </before>
+      
+      <after>
+        // Add appropriate content limits
+        export const MyBubble = createBubbleComponent(
+          "semantic-type",
+          "color",
+          {
+            maxLines: 30,
+            collapsedByDefault: true,
+            previewLines: 5
+          }
+        )(MyContent)
+      </after>
+    </add_content_limiting>
+
+    <fix_styling_violations>
+      <before>
+        // Styling violations
+        &lt;div style={{ fontSize: "14px", color: "#333", padding: "8px" }}&gt;
+          &lt;button style={{ backgroundColor: "#007acc" }}&gt;Click me&lt;/button&gt;
+        &lt;/div&gt;
+      </before>
+      
+      <after>
+        // Fixed with Tailwind + VSCode classes
+        &lt;div className="text-sm text-vscode-foreground p-2"&gt;
+          &lt;button className="px-3 py-1 rounded bg-vscode-button-background
+                             text-vscode-button-foreground
+                             hover:bg-vscode-button-background/80
+                             focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50
+                             transition-all"&gt;
+            Click me
+          &lt;/button&gt;
+        &lt;/div&gt;
+      </after>
+    </fix_styling_violations>
+
+    <migrate_to_expandable>
+      <scenario>Content grew beyond SimpleBubbleContent capacity</scenario>
+      <before>
+        &lt;SimpleBubbleContent
+          message={message}
+          classification={classification}
+          icon="file"
+          title="File Content"
+          renderContent={() =&gt; (
+            &lt;div&gt;{/* Large content here */}&lt;/div&gt;
+          )}
+        /&gt;
+      </before>
+      
+      <after>
+        &lt;ExpandableBubbleContent
+          message={message}
+          classification={classification}
+          icon="file"
+          title="File Content"
+          expanded={expanded}
+          onToggleExpand={onToggleExpand}
+          renderContent={() =&gt; (
+            &lt;div&gt;{/* Large content here */}&lt;/div&gt;
+          )}
+        /&gt;
+      </after>
+    </migrate_to_expandable>
+  </refactoring_examples>
+
+  <troubleshooting_quick_fixes>
+    <bubble_not_themed>
+      <symptom>Colors look wrong or default</symptom>
+      <check>Verify semantic type exists in SemanticType union</check>
+      <check>Ensure semantic type spelling is exact</check>
+      <quick_fix>Use "context" as fallback semantic type</quick_fix>
+    </bubble_not_themed>
+
+    <content_not_limiting>
+      <symptom>Large content overflows UI</symptom>
+      <check>Verify contentLimits specified in factory call</check>
+      <check>Ensure SmartContentRenderer is being used</check>
+      <quick_fix>Add { maxLines: 20, previewLines: 5 } to factory</quick_fix>
+    </content_not_limiting>
+
+    <styling_inconsistent>
+      <symptom>Bubble looks different from others</symptom>
+      <check>Remove any style props from content</check>
+      <check>Use vscode-* classes instead of hardcoded colors</check>
+      <quick_fix>Follow the styling enforcement rules</quick_fix>
+    </styling_inconsistent>
+  </troubleshooting_quick_fixes>
+</quick_examples>

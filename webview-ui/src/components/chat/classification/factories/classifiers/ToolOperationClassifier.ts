@@ -77,7 +77,7 @@ export class ToolOperationClassifier implements ClassificationFactory {
 		}
 
 		// Command operations
-		if (/^(command|execute|run|terminal)$/i.test(toolName)) {
+		if (/^(command|execute|execute_command|run|terminal)$/i.test(toolName)) {
 			return "command"
 		}
 

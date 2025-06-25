@@ -1,6 +1,6 @@
 import React from "react"
 import { cn } from "@src/lib/utils"
-import { DESIGN_TOKENS } from "../theme/chatDefaults"
+import { DESIGN_SYSTEM } from "../theme/chatDefaults"
 
 interface OverrideContentProps {
 	children: React.ReactNode
@@ -25,9 +25,9 @@ export const OverrideContent: React.FC<OverrideContentProps> = ({
 		<div
 			className={cn("", className)}
 			style={{
-				padding: DESIGN_TOKENS.spacing.contentPadding,
+				padding: DESIGN_SYSTEM.spacing.contentPadding,
 				borderTop: topBorder
-					? `${DESIGN_TOKENS.borders.thin} color-mix(in srgb, var(--vscode-foreground) 20%, transparent)`
+					? `${DESIGN_SYSTEM.borders.thin} color-mix(in srgb, var(--vscode-foreground) 20%, transparent)`
 					: "none",
 				backgroundColor,
 			}}>
@@ -64,27 +64,27 @@ export const OverrideContentSection: React.FC<OverrideContentSectionProps> = ({
 		<div
 			className={cn("", className)}
 			style={{
-				marginBottom: DESIGN_TOKENS.spacing.sectionGap,
-				padding: DESIGN_TOKENS.spacing.innerPadding,
+				marginBottom: DESIGN_SYSTEM.spacing.sectionGap,
+				padding: DESIGN_SYSTEM.spacing.innerPadding,
 				background: sectionBackground,
-				borderRadius: DESIGN_TOKENS.radius.content,
-				border: `${DESIGN_TOKENS.borders.thin} ${sectionBorder}`,
+				borderRadius: DESIGN_SYSTEM.radius.content,
+				border: `${DESIGN_SYSTEM.borders.thin} ${sectionBorder}`,
 			}}>
 			{title && (
 				<h4
 					style={{
-						margin: `0 0 ${DESIGN_TOKENS.spacing.elementGap} 0`,
+						margin: `0 0 ${DESIGN_SYSTEM.spacing.elementGap} 0`,
 						color: "var(--vscode-foreground)",
-						fontSize: DESIGN_TOKENS.typography.content,
+						fontSize: DESIGN_SYSTEM.typography.content,
 						fontWeight: "700",
 						display: "flex",
 						alignItems: "center",
-						gap: DESIGN_TOKENS.spacing.elementGap,
+						gap: DESIGN_SYSTEM.spacing.elementGap,
 					}}>
 					{titleIcon && (
 						<span
 							className={`codicon codicon-${titleIcon}`}
-							style={{ fontSize: DESIGN_TOKENS.typography.content }}
+							style={{ fontSize: DESIGN_SYSTEM.typography.content }}
 						/>
 					)}
 					{title}
@@ -108,7 +108,7 @@ interface OverrideGridProps {
 export const OverrideGrid: React.FC<OverrideGridProps> = ({
 	children,
 	columns = "repeat(auto-fit, minmax(140px, 1fr))",
-	gap = DESIGN_TOKENS.spacing.sectionGap,
+	gap = DESIGN_SYSTEM.spacing.sectionGap,
 	className,
 }) => {
 	return (
@@ -118,7 +118,7 @@ export const OverrideGrid: React.FC<OverrideGridProps> = ({
 				display: "grid",
 				gridTemplateColumns: columns,
 				gap,
-				fontSize: DESIGN_TOKENS.typography.small,
+				fontSize: DESIGN_SYSTEM.typography.small,
 				color: "var(--vscode-foreground)",
 			}}>
 			{children}

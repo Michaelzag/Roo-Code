@@ -2,6 +2,17 @@ import type { ClineMessage } from "@roo-code/types"
 import type { MessageStyle } from "../../theme/chatDefaults"
 
 /**
+ * Content size limits that all bubbles must implement
+ * Makes content limiting architectural rather than optional
+ */
+export interface BubbleContentLimits {
+	maxLines?: number // For text/command output limiting
+	maxItems?: number // For lists/files limiting
+	collapsedByDefault?: boolean // Whether bubble starts collapsed
+	previewLines?: number // Lines to show when collapsed
+}
+
+/**
  * Standard base props for all bubble components
  * Following the documented bubble pattern architecture
  */

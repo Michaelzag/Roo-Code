@@ -1,11 +1,11 @@
 import React from "react"
 import type { ClineMessage } from "@roo-code/types"
 import type { MessageStyle } from "../../theme/chatDefaults"
-import { TimestampExpandableBubbleContent } from "./shared/BubbleContent"
+import { ExpandableBubbleContent } from "./shared/BubbleContent"
 import { createBubbleComponent } from "./shared/BubbleHelpers"
 
 /**
- * FileSearchContent - Uses shared timestamp-based expandable content with smart content detection
+ * FileSearchContent - Uses shared expandable content with smart content detection
  *
  * The SmartContentRenderer automatically detects and renders:
  * - results arrays with search matches
@@ -20,15 +20,14 @@ const FileSearchContent: React.FC<{
 	isStreaming?: boolean
 	onToggleExpand?: (ts: number) => void
 	onBatchFileResponse?: (response: { [key: string]: boolean }) => void
-}> = ({ message, classification, isExpanded, onToggleExpand }) => {
+}> = ({ message, classification }) => {
 	return (
-		<TimestampExpandableBubbleContent
+		<ExpandableBubbleContent
 			message={message}
 			classification={classification}
 			icon="search"
 			title="Roo searched for files"
-			isExpanded={isExpanded}
-			onToggleExpand={onToggleExpand}
+			expanded={true}
 			// SmartContentRenderer automatically handles:
 			// - tool.results arrays (shows search results with line snippets)
 			// - Search patterns and file matches

@@ -22,11 +22,11 @@ const SearchContent: React.FC<{
 	isStreaming?: boolean
 	onToggleExpand?: (ts: number) => void
 	onSuggestionClick?: (answer: string, event?: React.MouseEvent) => void
-}> = ({ message, isExpanded, onToggleExpand }) => {
+}> = ({ message, classification, isExpanded, onToggleExpand }) => {
 	return (
 		<TimestampExpandableBubbleContent
 			message={message}
-			classification={{} as MessageStyle} // Will be set by BubbleUnified
+			classification={classification}
 			icon="search"
 			title="Search"
 			isExpanded={isExpanded}

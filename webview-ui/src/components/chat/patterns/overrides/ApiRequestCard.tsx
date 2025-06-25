@@ -4,6 +4,7 @@ import { cn } from "@src/lib/utils"
 import { ProgressIndicator } from "../../ProgressIndicator"
 import { safeJsonParse } from "@roo/safeJsonParse"
 import type { ClineMessage } from "@roo-code/types"
+import { DESIGN_SYSTEM } from "../../theme/chatDefaults"
 
 interface ApiRequestCardProps {
 	message: ClineMessage
@@ -84,14 +85,12 @@ export const ApiRequestCard: React.FC<ApiRequestCardProps> = ({
 
 		return (
 			<div
+				className={`${DESIGN_SYSTEM.spacing.componentContentPadding} border border-vscode-errorForeground rounded`}
 				style={{
-					margin: "8px 12px",
-					border: "1px solid var(--vscode-errorForeground)",
-					borderRadius: "4px",
 					backgroundColor: "color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)",
 				}}>
 				<div
-					className="flex items-center gap-2 p-2 cursor-pointer"
+					className={`flex items-center gap-2 ${DESIGN_SYSTEM.spacing.componentContentPadding} cursor-pointer`}
 					onClick={() => setErrorExpanded(!errorExpanded)}
 					style={{ borderBottom: errorExpanded ? "1px solid var(--vscode-errorForeground)" : "none" }}>
 					<span
@@ -118,8 +117,8 @@ export const ApiRequestCard: React.FC<ApiRequestCardProps> = ({
 				</div>
 				{errorExpanded && (
 					<div
+						className={DESIGN_SYSTEM.spacing.componentCodePadding}
 						style={{
-							padding: "8px 12px",
 							fontFamily: "var(--vscode-editor-font-family)",
 							fontSize: "11px",
 							color: "var(--vscode-errorForeground)",
@@ -142,13 +141,13 @@ export const ApiRequestCard: React.FC<ApiRequestCardProps> = ({
 		const requestContent = safeJsonParse<any>(message.text)?.request || ""
 
 		return (
-			<div style={{ marginTop: "10px", padding: "0 12px 12px" }}>
+			<div className={`mt-2 ${DESIGN_SYSTEM.spacing.componentContentPadding}`}>
 				<div
+					className={DESIGN_SYSTEM.spacing.componentCodePadding}
 					style={{
 						background: "var(--vscode-textCodeBlock-background)",
 						border: "1px solid var(--vscode-panel-border)",
 						borderRadius: "6px",
-						padding: "12px",
 						fontFamily: "var(--vscode-editor-font-family)",
 						fontSize: "13px",
 						color: "var(--vscode-foreground)",
@@ -183,12 +182,13 @@ export const ApiRequestCard: React.FC<ApiRequestCardProps> = ({
 	return (
 		<div
 			className={cn(
-				"border border-gray-600/20 rounded-md bg-vscode-input-background/50 shadow-sm overflow-hidden my-2",
+				"border border-gray-600/20 rounded-md bg-vscode-input-background/50 shadow-sm overflow-hidden",
+				DESIGN_SYSTEM.spacing.workMargin,
 				className,
 			)}>
 			{/* Header bar with three-section layout */}
 			<div
-				className="grid grid-cols-3 items-center gap-2 p-3 cursor-pointer hover:bg-vscode-input-background/70 transition-colors"
+				className={`grid grid-cols-3 items-center gap-2 ${DESIGN_SYSTEM.spacing.componentContentPadding} cursor-pointer hover:bg-vscode-input-background/70 transition-colors`}
 				onClick={onToggleExpand}>
 				{/* Left: Status, title, and cost */}
 				<div className="flex items-center gap-2">

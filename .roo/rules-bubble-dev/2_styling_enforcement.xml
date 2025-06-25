@@ -1,0 +1,182 @@
+<styling_enforcement>
+  <overview>
+    Critical styling rules that MUST be followed to maintain bubble consistency and VSCode integration.
+    Focus on preventing violations rather than documenting implementation details.
+  </overview>
+
+  <core_rules>
+    <rule id="tailwind_only">
+      <title>Content Components: Tailwind Classes Only</title>
+      <description>Content components (your bubble content) MUST use only Tailwind classes</description>
+      <violation>style={{ fontSize: "14px", color: "red", padding: "8px" }}</violation>
+      <correct>className="text-sm text-red-400 p-2"</correct>
+      <exceptions>
+        <exception>Base components can use inline styles for semantic theming</exception>
+        <exception>Semantic theming via CSS custom properties when needed</exception>
+      </exceptions>
+    </rule>
+
+    <rule id="vscode_colors">
+      <title>VSCode Color Integration Required</title>
+      <description>MUST use VSCode color classes for theme consistency across light/dark modes</description>
+      <required_classes>
+        <text>text-vscode-foreground, text-vscode-descriptionForeground</text>
+        <backgrounds>bg-vscode-input-background, bg-vscode-editor-background</backgrounds>
+        <borders>border-vscode-panel-border, border-vscode-focusBorder</borders>
+      </required_classes>
+      <violation>className="text-white bg-blue-500 border-gray-300"</violation>
+      <correct>className="text-vscode-foreground bg-vscode-input-background border-vscode-panel-border"</correct>
+    </rule>
+
+    <rule id="interactive_states">
+      <title>Interactive Elements Must Have States</title>
+      <description>All clickable elements MUST include hover and focus states</description>
+      <required_pattern>
+        <hover>hover:bg-vscode-input-background/70 hover:border-vscode-focusBorder/50</hover>
+        <focus>focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50</focus>
+        <transition>transition-all duration-150</transition>
+      </required_pattern>
+      <violation>&lt;button className="p-2 rounded"&gt;</violation>
+      <correct>&lt;button className="p-2 rounded hover:bg-vscode-input-background/70 focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50 transition-all"&gt;</correct>
+    </rule>
+
+    <rule id="no_hardcoded_colors">
+      <title>No Hardcoded Colors</title>
+      <description>MUST NOT use arbitrary color values or hardcoded hex codes</description>
+      <violations>
+        <violation>className="text-[#ffffff] bg-[#ff0000]"</violation>
+        <violation>style={{ color: "#333", backgroundColor: "#f0f0f0" }}</violation>
+      </violations>
+      <correct>Use VSCode theme variables via Tailwind classes</correct>
+    </rule>
+
+    <rule id="semantic_theming">
+      <title>Semantic Theming Access Pattern</title>
+      <description>When semantic-aware styling needed, use CSS custom properties</description>
+      <when>Creating badges, semantic borders, or theme-aware elements</when>
+      <allowed_pattern>
+        style={{
+          borderColor: 'var(--semantic-primary-color)' + '40',
+          background: 'var(--semantic-accent-color)' + '20'
+        }}
+      </allowed_pattern>
+      <available_variables>
+        <variable>--semantic-primary-color</variable>
+        <variable>--semantic-accent-color</variable>
+        <variable>--semantic-border-color</variable>
+        <variable>--semantic-text-accent</variable>
+      </available_variables>
+      <violation>style={{ borderColor: "#f59e0b" }}</violation>
+    </rule>
+  </core_rules>
+
+  <component_patterns>
+    <buttons>
+      <base_classes>w-full text-left p-3 rounded border border-vscode-panel-border bg-vscode-input-background/50 text-sm text-vscode-foreground</base_classes>
+      <interactive_classes>hover:bg-vscode-input-background/70 hover:border-vscode-focusBorder/50 focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50 transition-all duration-150</interactive_classes>
+      <enforcement>MUST include both base and interactive classes</enforcement>
+    </buttons>
+
+    <form_inputs>
+      <required_classes>w-full p-2 rounded border border-vscode-panel-border bg-vscode-input-background text-vscode-foreground placeholder-vscode-descriptionForeground focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder</required_classes>
+      <enforcement>MUST include focus state styling</enforcement>
+    </form_inputs>
+
+    <content_sections>
+      <spacing>space-y-2, space-y-3 for vertical sections</spacing>
+      <text>text-sm text-vscode-foreground leading-relaxed</text>
+      <secondary_text>text-xs text-vscode-descriptionForeground</secondary_text>
+    </content_sections>
+
+    <code_blocks>
+      <required_classes>bg-vscode-textCodeBlock-background p-3 rounded overflow-x-auto font-mono text-xs leading-relaxed text-vscode-foreground</required_classes>
+      <enforcement>MUST use vscode-textCodeBlock-background for code display</enforcement>
+    </code_blocks>
+  </component_patterns>
+
+  <common_violations>
+    <violation id="inline_styles">
+      <description>Using style prop for basic styling</description>
+      <examples>
+        <bad>style={{ fontSize: "14px", marginBottom: "8px" }}</bad>
+        <bad>style={{ display: "flex", alignItems: "center" }}</bad>
+      </examples>
+      <fix>Convert to Tailwind: className="text-sm mb-2" or className="flex items-center"</fix>
+    </violation>
+
+    <violation id="custom_colors">
+      <description>Using non-VSCode colors</description>
+      <examples>
+        <bad>className="text-blue-500 bg-gray-100"</bad>
+        <bad>style={{ color: "#007acc" }}</bad>
+      </examples>
+      <fix>Use VSCode theme: className="text-vscode-foreground bg-vscode-input-background"</fix>
+    </violation>
+
+    <violation id="missing_interaction">
+      <description>Interactive elements without proper states</description>
+      <examples>
+        <bad>&lt;button className="p-2 bg-blue-500"&gt;</bad>
+        <bad>&lt;div onClick={handler} className="cursor-pointer"&gt;</bad>
+      </examples>
+      <fix>Add hover/focus states and transitions</fix>
+    </violation>
+
+    <violation id="inconsistent_spacing">
+      <description>Not using standard Tailwind spacing</description>
+      <examples>
+        <bad>style={{ padding: "12px", margin: "6px 0" }}</bad>
+        <bad>className="p-[12px] m-[6px]"</bad>
+      </examples>
+      <fix>Use standard spacing: className="p-3 my-1.5"</fix>
+    </violation>
+  </common_violations>
+
+  <accessibility_enforcement>
+    <keyboard_navigation>
+      <rule>All interactive elements MUST be keyboard accessible</rule>
+      <requirement>Include focus:ring-2 focus:ring-vscode-focusBorder/50</requirement>
+      <requirement>Use semantic HTML (button, input, etc.)</requirement>
+    </keyboard_navigation>
+
+    <screen_readers>
+      <rule>Icon-only buttons MUST have aria-label</rule>
+      <rule>Complex interactions MUST have appropriate ARIA attributes</rule>
+      <example>&lt;button aria-label="Expand content" className="..."&gt;&lt;span className="codicon codicon-chevron-down" /&gt;&lt;/button&gt;</example>
+    </screen_readers>
+  </accessibility_enforcement>
+
+  <validation_process>
+    <before_commit>
+      <check>No style props in content components (except semantic theming)</check>
+      <check>All colors use vscode-* classes</check>
+      <check>Interactive elements have hover/focus states</check>
+      <check>No hardcoded colors or arbitrary values</check>
+      <check>Consistent spacing using Tailwind scale</check>
+    </before_commit>
+
+    <testing_requirements>
+      <test>Light and dark VSCode themes</test>
+      <test>Keyboard navigation works</test>
+      <test>Hover states visible and smooth</test>
+      <test>Focus indicators clear and consistent</test>
+    </testing_requirements>
+  </validation_process>
+
+  <quick_fixes>
+    <inline_style_to_tailwind>
+      <from>style={{ fontSize: "14px", fontWeight: "500", marginBottom: "8px" }}</from>
+      <to>className="text-sm font-medium mb-2"</to>
+    </inline_style_to_tailwind>
+
+    <hardcoded_to_vscode>
+      <from>className="text-gray-600 bg-gray-100 border-gray-300"</from>
+      <to>className="text-vscode-descriptionForeground bg-vscode-input-background border-vscode-panel-border"</to>
+    </hardcoded_to_vscode>
+
+    <add_interaction_states>
+      <from>className="p-2 rounded cursor-pointer"</from>
+      <to>className="p-2 rounded cursor-pointer hover:bg-vscode-input-background/30 focus:outline-none focus:ring-2 focus:ring-vscode-focusBorder/50 transition-all"</to>
+    </add_interaction_states>
+  </quick_fixes>
+</styling_enforcement>

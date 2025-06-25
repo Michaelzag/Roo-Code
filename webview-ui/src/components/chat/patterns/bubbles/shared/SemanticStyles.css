@@ -2,13 +2,14 @@
 
 /* Add subtle animations and enhanced visual effects */
 .semantic-bubble {
-	transition: all 0.2s ease-in-out;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	overflow: hidden;
+	position: relative;
 }
 
 .semantic-bubble:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px var(--semantic-shadow-color, rgba(0, 0, 0, 0.15));
+	transform: translateY(-2px);
+	box-shadow: 0 8px 25px var(--semantic-shadow-color, rgba(0, 0, 0, 0.25));
 }
 
 .semantic-header {

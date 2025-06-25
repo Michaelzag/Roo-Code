@@ -1,8 +1,10 @@
 import React from "react"
 import type { ClineMessage } from "@roo-code/types"
 import type { MessageStyle, ColorName, SemanticType } from "../../../theme/chatDefaults"
+import type { BubbleContentLimits } from "../types"
 import { getSemanticTheme } from "../../../theme/chatDefaults"
 import { BubbleUnified } from "../../BubbleUnified"
+import { TypographyProvider } from "./TypographyInheritance"
 
 /**
  * Helper to create work classification with semantic override
@@ -25,8 +27,13 @@ export function createWorkClassification(
 
 /**
  * Higher-order component that wraps content with BubbleUnified
+ * Content limits are optional with sensible defaults
  */
-export function createBubbleComponent<T extends object>(semantic: SemanticType, defaultColor: ColorName = "blue") {
+export function createBubbleComponent<T extends object>(
+	semantic: SemanticType,
+	defaultColor: ColorName = "blue",
+	contentLimits: BubbleContentLimits = {}, // Optional with sensible defaults
+) {
 	return (ContentComponent: React.ComponentType<any>) => {
 		const BubbleComponent: React.FC<
 			T & {
@@ -39,14 +46,20 @@ export function createBubbleComponent<T extends object>(semantic: SemanticType, 
 			const bubbleClassification = createWorkClassification(semantic, defaultColor, classification)
 
 			return (
-				<BubbleUnified
-					message={message}
-					classification={bubbleClassification}
-					contentComponent={ContentComponent}
-					contentProps={{ ...props, classification: bubbleClassification }}
-					className={className}>
-					{children}
-				</BubbleUnified>
+				<TypographyProvider semantic={semantic}>
+					<BubbleUnified
+						message={message}
+						classification={bubbleClassification}
+						contentComponent={ContentComponent}
+						contentProps={{
+							...props,
+							classification: bubbleClassification,
+							contentLimits, // Pass limits to content component
+						}}
+						className={className}>
+						{children}
+					</BubbleUnified>
+				</TypographyProvider>
 			)
 		}
 
@@ -57,7 +70,13 @@ export function createBubbleComponent<T extends object>(semantic: SemanticType, 
 /**
  * Simple factory for creating basic bubbles with standard content
  */
-export function createSimpleBubble(semantic: SemanticType, icon: string, title: string, color: ColorName = "blue") {
+export function createSimpleBubble(
+	semantic: SemanticType,
+	icon: string,
+	title: string,
+	color: ColorName = "blue",
+	contentLimits: BubbleContentLimits = {}, // Default to no limits for simple bubbles
+) {
 	const ContentComponent: React.FC<{
 		message: ClineMessage
 		classification: MessageStyle
@@ -81,5 +100,5 @@ export function createSimpleBubble(semantic: SemanticType, icon: string, title: 
 		)
 	}
 
-	return createBubbleComponent(semantic, color)(ContentComponent)
+	return createBubbleComponent(semantic, color, contentLimits)(ContentComponent)
 }

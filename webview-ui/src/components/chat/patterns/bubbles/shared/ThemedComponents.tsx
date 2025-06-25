@@ -6,7 +6,7 @@
  */
 
 import React from "react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../../../lib/utils"
 import { getSemanticTheme, type SemanticType } from "../../../theme/chatDefaults"
 
 // Props for themed components
@@ -222,20 +222,53 @@ export const ThemedMarkdown: React.FC<ThemedComponentProps & { content: string }
 }) => {
 	const theme = getSemanticTheme(semantic)
 
-	// Simple markdown-to-HTML conversion for common cases
+	// Enhanced markdown-to-HTML conversion with code block support
 	const processMarkdown = React.useMemo(() => {
 		let processed = content
+
+		// Code blocks with language detection
+		processed = processed.replace(/```(\w+)?\n([\s\S]*?)```/g, (_match, _lang, code) => {
+			return `<pre class="bg-vscode-textCodeBlock-background p-3 rounded-md overflow-x-auto my-3 border border-opacity-20" style="border-color: var(--theme-accent);"><code class="text-xs font-mono text-vscode-foreground block">${code.trim()}</code></pre>`
+		})
 
 		// Headers
 		processed = processed.replace(/^### (.*$)/gm, '<h3 class="text-base font-semibold mb-2 mt-3">$1</h3>')
 		processed = processed.replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mb-2 mt-4">$1</h2>')
 		processed = processed.replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mb-3 mt-4">$1</h1>')
 
+		// Numbered lists - process line by line
+		const numberedListRegex = /^\d+\.\s(.*)$/gm
+		let hasNumberedList = false
+		processed = processed.replace(numberedListRegex, (_match, content) => {
+			hasNumberedList = true
+			return `<li class="mb-1">${content}</li>`
+		})
+		if (hasNumberedList) {
+			processed = processed.replace(
+				/(<li class="mb-1">[\s\S]*?<\/li>)/g,
+				'<ol class="list-decimal list-inside mb-3 space-y-1">$1</ol>',
+			)
+		}
+
+		// Bullet lists - process line by line
+		const bulletListRegex = /^[-*+]\s(.*)$/gm
+		let hasBulletList = false
+		processed = processed.replace(bulletListRegex, (_match, content) => {
+			hasBulletList = true
+			return `<li class="mb-1">${content}</li>`
+		})
+		if (hasBulletList) {
+			processed = processed.replace(
+				/(<li class="mb-1">[\s\S]*?<\/li>)/g,
+				'<ul class="list-disc list-inside mb-3 space-y-1">$1</ul>',
+			)
+		}
+
 		// Bold and italic
 		processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
 		processed = processed.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
 
-		// Inline code
+		// Inline code (not inside code blocks)
 		processed = processed.replace(
 			/`([^`]+)`/g,
 			'<code class="px-1 py-0.5 rounded text-xs font-mono bg-opacity-20" style="background-color: var(--theme-accent);">$1</code>',
@@ -247,7 +280,7 @@ export const ThemedMarkdown: React.FC<ThemedComponentProps & { content: string }
 			'<a href="$2" class="underline hover:opacity-80" style="color: var(--theme-primary);">$1</a>',
 		)
 
-		// Line breaks
+		// Line breaks - preserve double line breaks as paragraphs
 		processed = processed.replace(/\n\n/g, '</p><p class="mb-2">')
 		processed = '<p class="mb-2">' + processed + "</p>"
 
@@ -298,13 +331,16 @@ export const AutoFormattedContent: React.FC<ThemedComponentProps & { content: st
 		stringContent.includes("**") ||
 		stringContent.includes("##") ||
 		stringContent.includes("`") ||
-		(stringContent.includes("[") && stringContent.includes("]("))
+		stringContent.includes("```") ||
+		(stringContent.includes("[") && stringContent.includes("](")) ||
+		/^\d+\.\s/.test(stringContent) || // Numbered lists
+		/^[-*+]\s/.test(stringContent) // Bullet lists
 	) {
 		return <ThemedMarkdown semantic={semantic} content={stringContent} className={className} />
 	}
 
 	// Plain text with semantic styling
-	return <div className={cn("text-sm leading-relaxed", className)}>{stringContent}</div>
+	return <div className={cn("chat-content-typography", className)}>{stringContent}</div>
 }
 
 export default {

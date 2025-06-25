@@ -96,28 +96,37 @@ export const DEFAULT_STYLE_CONFIG = {
 	},
 } as const
 
-// Design Token System - Extracted from current beautiful components
-export const DESIGN_TOKENS = {
-	// Compact spacing values optimized for streamlined design
+// Design System - Extracted from current beautiful components
+export const DESIGN_SYSTEM = {
+	// Ultra-compact spacing values optimized for maximum information density
 	spacing: {
-		cardMargin: "8px 0", // Reduced container margin for compactness
-		contentPadding: "16px", // Reduced main content padding
-		innerPadding: "12px", // Reduced inner content sections
-		badgePadding: "3px 8px", // Reduced badge padding
-		badgePaddingLg: "4px 10px", // Reduced larger badge padding
-		headerPadding: "3px 8px", // Reduced header elements
-		elementGap: "6px", // Reduced gap between elements
-		sectionGap: "8px", // Reduced gap between sections
+		cardMargin: "4px 0", // Ultra-compact container margin
+		contentPadding: "12px", // Compressed main content padding
+		innerPadding: "8px", // Compressed inner content sections
+		badgePadding: "2px 6px", // Compressed badge padding
+		badgePaddingLg: "3px 8px", // Compressed larger badge padding
+		headerPadding: "2px 6px", // Compressed header elements
+		elementGap: "4px", // Compressed gap between elements
+		sectionGap: "4px", // Compressed gap between sections
 
-		// Bubble-specific spacing - optimized for compact design
-		bubblePadding: "px-3 py-2", // Reduced standard bubble padding
-		bubbleMargin: "mb-1.5", // Reduced standard bubble margin
-		workPadding: "py-1.5 pb-2", // Reduced work operation padding
-		workMargin: "my-1", // Compact work margin
+		// Bubble-specific spacing - ultra-compact for maximum density
+		bubblePadding: "px-2 py-1", // Ultra-compact standard bubble padding
+		bubbleMargin: "mb-0.5", // Ultra-compact standard bubble margin (50% reduction)
+		workPadding: "py-1 pb-1.5", // Ultra-compact work operation padding
+		workMargin: "my-0.5", // Ultra-compact work margin
 
 		// Header and content spacing for override components
-		overrideHeaderPadding: "p-3", // Reduced override component header padding
-		overrideContentPadding: "px-3 pb-2 pt-0", // Reduced override component content padding
+		overrideHeaderPadding: "p-2", // Compressed override component header padding
+		overrideContentPadding: "px-2 pb-1.5 pt-0", // Compressed override component content padding
+
+		// GUI-scalable tokens for complete alignment
+		baseHeaderPadding: "py-3 px-4", // Base header padding (GUI-controllable)
+		baseContentPadding: "p-1", // Base content padding (GUI-controllable)
+		componentContentPadding: "p-2", // Override component content padding (GUI-controllable)
+		componentSectionGap: "space-y-1", // Section gap in content (GUI-controllable)
+		componentElementGap: "gap-1", // Element gap in content (GUI-controllable)
+		componentCodePadding: "p-1.5", // Code block padding (GUI-controllable)
+		componentBadgeMargin: "mb-1.5", // Badge margin (GUI-controllable)
 	},
 
 	// Proven border radius values
@@ -254,187 +263,241 @@ export const DESIGN_TOKENS = {
 	},
 } as const
 
-// Semantic-Aware Theme System - Rich styling for each semantic type
+// Semantic-Aware Theme System - Enhanced for professional polish
 export const SEMANTIC_THEMES = {
 	thinking: {
-		primary: "#f59e0b",
-		accent: "#d97706",
-		background: "color-mix(in srgb, #f59e0b 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #f59e0b 12%, var(--vscode-editor-background))",
-		borderColor: "#f59e0b",
-		shadowColor: "color-mix(in srgb, #f59e0b 25%, transparent)",
-		iconColor: "#f59e0b",
-		textAccent: "#d97706",
+		primary: "#10b981",
+		accent: "#059669",
+		background: "color-mix(in srgb, #10b981 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #10b981 18%, var(--vscode-editor-background)), color-mix(in srgb, #059669 15%, var(--vscode-editor-background)))",
+		borderColor: "#10b981",
+		shadowColor: "color-mix(in srgb, #10b981 20%, transparent)",
+		iconColor: "#10b981",
+		textAccent: "#059669",
+		borderStyle: "1px solid color-mix(in srgb, #10b981 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #10b981 15%, transparent)",
 	},
 	error: {
 		primary: "#ef4444",
 		accent: "#dc2626",
-		background: "color-mix(in srgb, #ef4444 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #ef4444 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #ef4444 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #ef4444 18%, var(--vscode-editor-background)), color-mix(in srgb, #dc2626 15%, var(--vscode-editor-background)))",
 		borderColor: "#ef4444",
-		shadowColor: "color-mix(in srgb, #ef4444 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #ef4444 20%, transparent)",
 		iconColor: "#ef4444",
 		textAccent: "#dc2626",
+		borderStyle: "1px solid color-mix(in srgb, #ef4444 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #ef4444 15%, transparent)",
 	},
 	"file-read": {
 		primary: "#06b6d4",
 		accent: "#0891b2",
-		background: "color-mix(in srgb, #06b6d4 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #06b6d4 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #06b6d4 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #06b6d4 18%, var(--vscode-editor-background)), color-mix(in srgb, #0891b2 15%, var(--vscode-editor-background)))",
 		borderColor: "#06b6d4",
-		shadowColor: "color-mix(in srgb, #06b6d4 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #06b6d4 20%, transparent)",
 		iconColor: "#06b6d4",
 		textAccent: "#0891b2",
+		borderStyle: "1px solid color-mix(in srgb, #06b6d4 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #06b6d4 15%, transparent)",
 	},
 	"file-write": {
 		primary: "#f97316",
 		accent: "#ea580c",
-		background: "color-mix(in srgb, #f97316 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #f97316 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #f97316 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #f97316 18%, var(--vscode-editor-background)), color-mix(in srgb, #ea580c 15%, var(--vscode-editor-background)))",
 		borderColor: "#f97316",
-		shadowColor: "color-mix(in srgb, #f97316 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #f97316 20%, transparent)",
 		iconColor: "#f97316",
 		textAccent: "#ea580c",
+		borderStyle: "1px solid color-mix(in srgb, #f97316 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #f97316 15%, transparent)",
 	},
 	"file-search": {
 		primary: "#14b8a6",
 		accent: "#0f766e",
-		background: "color-mix(in srgb, #14b8a6 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #14b8a6 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #14b8a6 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #14b8a6 18%, var(--vscode-editor-background)), color-mix(in srgb, #0f766e 15%, var(--vscode-editor-background)))",
 		borderColor: "#14b8a6",
-		shadowColor: "color-mix(in srgb, #14b8a6 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #14b8a6 20%, transparent)",
 		iconColor: "#14b8a6",
 		textAccent: "#0f766e",
+		borderStyle: "1px solid color-mix(in srgb, #14b8a6 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #14b8a6 15%, transparent)",
 	},
 	"codebase-search": {
-		primary: "#6366f1",
-		accent: "#4f46e5",
-		background: "color-mix(in srgb, #6366f1 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #6366f1 12%, var(--vscode-editor-background))",
-		borderColor: "#6366f1",
-		shadowColor: "color-mix(in srgb, #6366f1 25%, transparent)",
-		iconColor: "#6366f1",
-		textAccent: "#4f46e5",
+		primary: "#ec4899",
+		accent: "#be185d",
+		background: "color-mix(in srgb, #ec4899 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #ec4899 18%, var(--vscode-editor-background)), color-mix(in srgb, #be185d 15%, var(--vscode-editor-background)))",
+		borderColor: "#ec4899",
+		shadowColor: "color-mix(in srgb, #ec4899 20%, transparent)",
+		iconColor: "#ec4899",
+		textAccent: "#be185d",
+		borderStyle: "1px solid color-mix(in srgb, #ec4899 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #ec4899 15%, transparent)",
 	},
 	"mode-change": {
 		primary: "#8b5cf6",
 		accent: "#7c3aed",
-		background: "color-mix(in srgb, #8b5cf6 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #8b5cf6 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #8b5cf6 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #8b5cf6 18%, var(--vscode-editor-background)), color-mix(in srgb, #7c3aed 15%, var(--vscode-editor-background)))",
 		borderColor: "#8b5cf6",
-		shadowColor: "color-mix(in srgb, #8b5cf6 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #8b5cf6 20%, transparent)",
 		iconColor: "#8b5cf6",
 		textAccent: "#7c3aed",
+		borderStyle: "1px solid color-mix(in srgb, #8b5cf6 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #8b5cf6 15%, transparent)",
 	},
 	command: {
-		primary: "#6b7280",
-		accent: "#4b5563",
-		background: "color-mix(in srgb, #6b7280 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #6b7280 12%, var(--vscode-editor-background))",
-		borderColor: "#6b7280",
-		shadowColor: "color-mix(in srgb, #6b7280 25%, transparent)",
-		iconColor: "#6b7280",
-		textAccent: "#4b5563",
+		primary: "#9ca3af",
+		accent: "#6b7280",
+		background: "color-mix(in srgb, #9ca3af 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #9ca3af 18%, var(--vscode-editor-background)), color-mix(in srgb, #6b7280 15%, var(--vscode-editor-background)))",
+		borderColor: "#9ca3af",
+		shadowColor: "color-mix(in srgb, #9ca3af 20%, transparent)",
+		iconColor: "#9ca3af",
+		textAccent: "#6b7280",
+		borderStyle: "1px solid color-mix(in srgb, #9ca3af 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #9ca3af 15%, transparent)",
 	},
 	completion: {
-		primary: "#10b981",
-		accent: "#059669",
-		background: "color-mix(in srgb, #10b981 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #10b981 12%, var(--vscode-editor-background))",
-		borderColor: "#10b981",
-		shadowColor: "color-mix(in srgb, #10b981 25%, transparent)",
-		iconColor: "#10b981",
-		textAccent: "#059669",
+		primary: "#f59e0b",
+		accent: "#d97706",
+		background: "color-mix(in srgb, #f59e0b 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #f59e0b 18%, var(--vscode-editor-background)), color-mix(in srgb, #d97706 15%, var(--vscode-editor-background)))",
+		borderColor: "#f59e0b",
+		shadowColor: "color-mix(in srgb, #f59e0b 20%, transparent)",
+		iconColor: "#f59e0b",
+		textAccent: "#d97706",
+		borderStyle: "1px solid color-mix(in srgb, #f59e0b 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #f59e0b 15%, transparent)",
 	},
 	search: {
 		primary: "#ec4899",
 		accent: "#be185d",
-		background: "color-mix(in srgb, #ec4899 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #ec4899 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #ec4899 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #ec4899 18%, var(--vscode-editor-background)), color-mix(in srgb, #be185d 15%, var(--vscode-editor-background)))",
 		borderColor: "#ec4899",
-		shadowColor: "color-mix(in srgb, #ec4899 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #ec4899 20%, transparent)",
 		iconColor: "#ec4899",
 		textAccent: "#be185d",
+		borderStyle: "1px solid color-mix(in srgb, #ec4899 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #ec4899 15%, transparent)",
 	},
 	"user-input": {
 		primary: "#3b82f6",
 		accent: "#2563eb",
-		background: "color-mix(in srgb, #3b82f6 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #3b82f6 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #3b82f6 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #3b82f6 18%, var(--vscode-editor-background)), color-mix(in srgb, #2563eb 15%, var(--vscode-editor-background)))",
 		borderColor: "#3b82f6",
-		shadowColor: "color-mix(in srgb, #3b82f6 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #3b82f6 20%, transparent)",
 		iconColor: "#3b82f6",
 		textAccent: "#2563eb",
+		borderStyle: "1px solid color-mix(in srgb, #3b82f6 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #3b82f6 15%, transparent)",
 	},
 	"agent-response": {
 		primary: "#10b981",
 		accent: "#059669",
-		background: "color-mix(in srgb, #10b981 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #10b981 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #10b981 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #10b981 18%, var(--vscode-editor-background)), color-mix(in srgb, #059669 15%, var(--vscode-editor-background)))",
 		borderColor: "#10b981",
-		shadowColor: "color-mix(in srgb, #10b981 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #10b981 20%, transparent)",
 		iconColor: "#10b981",
 		textAccent: "#059669",
+		borderStyle: "1px solid color-mix(in srgb, #10b981 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #10b981 15%, transparent)",
 	},
 	browser: {
 		primary: "#3b82f6",
 		accent: "#2563eb",
-		background: "color-mix(in srgb, #3b82f6 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #3b82f6 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #3b82f6 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #3b82f6 18%, var(--vscode-editor-background)), color-mix(in srgb, #2563eb 15%, var(--vscode-editor-background)))",
 		borderColor: "#3b82f6",
-		shadowColor: "color-mix(in srgb, #3b82f6 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #3b82f6 20%, transparent)",
 		iconColor: "#3b82f6",
 		textAccent: "#2563eb",
+		borderStyle: "1px solid color-mix(in srgb, #3b82f6 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #3b82f6 15%, transparent)",
 	},
 	mcp: {
 		primary: "#8b5cf6",
 		accent: "#7c3aed",
-		background: "color-mix(in srgb, #8b5cf6 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #8b5cf6 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #8b5cf6 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #8b5cf6 18%, var(--vscode-editor-background)), color-mix(in srgb, #7c3aed 15%, var(--vscode-editor-background)))",
 		borderColor: "#8b5cf6",
-		shadowColor: "color-mix(in srgb, #8b5cf6 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #8b5cf6 20%, transparent)",
 		iconColor: "#8b5cf6",
 		textAccent: "#7c3aed",
+		borderStyle: "1px solid color-mix(in srgb, #8b5cf6 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #8b5cf6 15%, transparent)",
 	},
 	api: {
 		primary: "#f97316",
 		accent: "#ea580c",
-		background: "color-mix(in srgb, #f97316 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #f97316 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #f97316 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #f97316 18%, var(--vscode-editor-background)), color-mix(in srgb, #ea580c 15%, var(--vscode-editor-background)))",
 		borderColor: "#f97316",
-		shadowColor: "color-mix(in srgb, #f97316 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #f97316 20%, transparent)",
 		iconColor: "#f97316",
 		textAccent: "#ea580c",
+		borderStyle: "1px solid color-mix(in srgb, #f97316 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #f97316 15%, transparent)",
 	},
 	subtask: {
 		primary: "#06b6d4",
 		accent: "#0891b2",
-		background: "color-mix(in srgb, #06b6d4 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #06b6d4 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #06b6d4 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #06b6d4 18%, var(--vscode-editor-background)), color-mix(in srgb, #0891b2 15%, var(--vscode-editor-background)))",
 		borderColor: "#06b6d4",
-		shadowColor: "color-mix(in srgb, #06b6d4 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #06b6d4 20%, transparent)",
 		iconColor: "#06b6d4",
 		textAccent: "#0891b2",
+		borderStyle: "1px solid color-mix(in srgb, #06b6d4 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #06b6d4 15%, transparent)",
 	},
 	context: {
 		primary: "#6b7280",
 		accent: "#4b5563",
-		background: "color-mix(in srgb, #6b7280 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #6b7280 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #6b7280 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #6b7280 18%, var(--vscode-editor-background)), color-mix(in srgb, #4b5563 15%, var(--vscode-editor-background)))",
 		borderColor: "#6b7280",
-		shadowColor: "color-mix(in srgb, #6b7280 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #6b7280 20%, transparent)",
 		iconColor: "#6b7280",
 		textAccent: "#4b5563",
+		borderStyle: "1px solid color-mix(in srgb, #6b7280 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #6b7280 15%, transparent)",
 	},
 	checkpoint: {
 		primary: "#10b981",
 		accent: "#059669",
-		background: "color-mix(in srgb, #10b981 8%, var(--vscode-editor-background))",
-		headerGradient: "color-mix(in srgb, #10b981 12%, var(--vscode-editor-background))",
+		background: "color-mix(in srgb, #10b981 12%, var(--vscode-editor-background))",
+		headerGradient:
+			"linear-gradient(135deg, color-mix(in srgb, #10b981 18%, var(--vscode-editor-background)), color-mix(in srgb, #059669 15%, var(--vscode-editor-background)))",
 		borderColor: "#10b981",
-		shadowColor: "color-mix(in srgb, #10b981 25%, transparent)",
+		shadowColor: "color-mix(in srgb, #10b981 20%, transparent)",
 		iconColor: "#10b981",
 		textAccent: "#059669",
+		borderStyle: "1px solid color-mix(in srgb, #10b981 30%, transparent)",
+		headerShadow: "0 1px 4px color-mix(in srgb, #10b981 15%, transparent)",
 	},
 } as const
 
@@ -446,20 +509,20 @@ export const getSemanticTheme = (semantic?: SemanticType) => {
 	return SEMANTIC_THEMES[semantic]
 }
 
-// Enhanced pattern defaults (post-refactor) - Using compact design tokens
+// Ultra-compact pattern defaults - Maximum information density
 export const SIMPLIFIED_PATTERN_DEFAULTS = {
 	bubble: {
 		classes: "rounded-lg shadow-sm",
 		maxWidth: "max-w-[90%]",
 		defaultColor: "blue" as const,
 		variants: {
-			user: "ml-auto rounded-br-md px-3 py-2 mb-1.5",
-			agent: "mr-auto rounded-tl-md px-3 py-2 mb-1.5",
-			work: "max-w-[95%] rounded-xl shadow-md my-1 overflow-hidden py-1.5 pb-2",
+			user: "ml-auto rounded-br-md px-2 py-1 mb-0.5",
+			agent: "mr-auto rounded-tl-md px-2 py-1 mb-0.5",
+			work: "max-w-[95%] rounded-xl shadow-md my-0.5 overflow-hidden py-1 pb-1.5",
 		},
 	},
 	"status-bar": {
-		classes: "rounded px-2 py-1.5 my-0.5 shadow-sm bg-vscode-input-background/30",
+		classes: "rounded px-2 py-1 my-0.5 shadow-sm bg-vscode-input-background/30",
 		maxWidth: "max-w-full",
 		defaultColor: "gray" as const,
 	},

@@ -19,6 +19,7 @@ import { FileSearchBubble } from "./patterns/bubbles/FileSearchBubble"
 import { ModeChangeBubble } from "./patterns/bubbles/ModeChangeBubble"
 import { CommandBubble } from "./patterns/bubbles/CommandBubble"
 import { SearchBubble } from "./patterns/bubbles/SearchBubble"
+import { CodebaseSearchBubble } from "./patterns/bubbles/CodebaseSearchBubble"
 import { CompletionBubble } from "./patterns/bubbles/CompletionBubble"
 import { BrowserBubble } from "./patterns/bubbles/BrowserBubble"
 import { McpBubble } from "./patterns/bubbles/McpBubble"
@@ -188,7 +189,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, ...props }) =
 									<ThinkingBubble
 										message={message}
 										classification={style}
-										expanded={props.isExpanded}
+										isExpanded={props.isExpanded}
 										onToggleExpand={bubbleProps.onToggleExpand}
 									/>
 								)
@@ -228,8 +229,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, ...props }) =
 								return <CommandBubble message={message} classification={style} {...bubbleProps} />
 
 							case "search":
-							case "codebase-search":
 								return <SearchBubble message={message} classification={style} {...bubbleProps} />
+
+							case "codebase-search":
+								return (
+									<CodebaseSearchBubble message={message} classification={style} {...bubbleProps} />
+								)
 
 							case "browser":
 								return <BrowserBubble message={message} classification={style} {...bubbleProps} />

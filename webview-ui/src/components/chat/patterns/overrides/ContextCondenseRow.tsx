@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Markdown } from "../../Markdown"
 import { ProgressIndicator } from "../../ProgressIndicator"
+import { DESIGN_SYSTEM } from "../../theme/chatDefaults"
 import type { ContextCondense } from "@roo-code/types"
 
 /**
@@ -22,7 +23,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 	return (
 		<div
 			style={{
-				margin: "12px 0",
+				margin: DESIGN_SYSTEM.spacing.cardMargin,
 				border: `2px solid ${darkPinkColor}`,
 				borderRadius: "8px",
 				background: `color-mix(in srgb, ${pinkColor} 8%, var(--vscode-editor-background))`,
@@ -44,9 +45,9 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 
 			{/* Header */}
 			<div
-				className="flex items-center justify-between gap-3 p-4 cursor-pointer transition-all duration-200"
+				className={`flex items-center justify-between ${DESIGN_SYSTEM.spacing.componentElementGap} ${DESIGN_SYSTEM.spacing.overrideHeaderPadding} cursor-pointer transition-all duration-200`}
 				onClick={() => setIsExpanded(!isExpanded)}>
-				<div className="flex items-center gap-3">
+				<div className={`flex items-center ${DESIGN_SYSTEM.spacing.componentElementGap}`}>
 					<div
 						style={{
 							display: "flex",
@@ -81,7 +82,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 								background: `color-mix(in srgb, ${pinkColor} 20%, var(--vscode-editor-background))`,
 								border: `1px solid ${pinkColor}`,
 								borderRadius: "12px",
-								padding: "4px 12px",
+								padding: DESIGN_SYSTEM.spacing.badgePaddingLg,
 								color: darkPinkColor,
 								fontWeight: "700",
 								fontSize: "13px",
@@ -91,7 +92,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 					)}
 				</div>
 
-				<div className="flex items-center gap-3">
+				<div className={`flex items-center ${DESIGN_SYSTEM.spacing.componentElementGap}`}>
 					{/* Token reduction info with better contrast */}
 					<div
 						style={{
@@ -115,16 +116,16 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 
 			{isExpanded && (
 				<div
+					className={DESIGN_SYSTEM.spacing.componentContentPadding}
 					style={{
-						padding: "20px",
 						borderTop: `1px solid color-mix(in srgb, ${pinkColor} 20%, transparent)`,
 						backgroundColor: "var(--vscode-textCodeBlock-background)",
 					}}>
 					{/* Condensing results summary */}
 					<div
+						className={DESIGN_SYSTEM.spacing.componentBadgeMargin}
 						style={{
-							marginBottom: "16px",
-							padding: "12px",
+							padding: DESIGN_SYSTEM.spacing.innerPadding,
 							background: `color-mix(in srgb, ${pinkColor} 5%, var(--vscode-editor-background))`,
 							borderRadius: "6px",
 							border: `1px solid color-mix(in srgb, ${pinkColor} 20%, transparent)`,
@@ -142,7 +143,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 							style={{
 								display: "grid",
 								gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-								gap: "12px",
+								gap: DESIGN_SYSTEM.spacing.innerPadding,
 								fontSize: "13px",
 								color: "var(--vscode-foreground)",
 							}}>
@@ -177,7 +178,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 						<div>
 							<h4
 								style={{
-									margin: "0 0 12px 0",
+									margin: `0 0 ${DESIGN_SYSTEM.spacing.innerPadding} 0`,
 									color: "var(--vscode-foreground)",
 									fontSize: "14px",
 									fontWeight: "600",
@@ -189,7 +190,7 @@ export const ContextCondenseRow = ({ cost, prevContextTokens, newContextTokens, 
 									fontSize: "13px",
 									color: "var(--vscode-foreground)",
 									lineHeight: "1.6",
-									padding: "12px",
+									padding: DESIGN_SYSTEM.spacing.innerPadding,
 									background: "var(--vscode-input-background)",
 									borderRadius: "4px",
 									border: "1px solid var(--vscode-input-border)",

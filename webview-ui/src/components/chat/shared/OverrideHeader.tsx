@@ -1,6 +1,6 @@
 import React from "react"
 import { cn } from "@src/lib/utils"
-import { DESIGN_TOKENS } from "../theme/chatDefaults"
+import { DESIGN_SYSTEM } from "../theme/chatDefaults"
 
 interface OverrideHeaderProps {
 	icon: string
@@ -32,7 +32,7 @@ export const OverrideHeader: React.FC<OverrideHeaderProps> = ({
 	theme = "standard",
 }) => {
 	// Get theme-specific styling
-	const themeData = DESIGN_TOKENS.themes[theme]
+	const themeData = DESIGN_SYSTEM.themes[theme]
 	const effectiveIconColor = theme !== "standard" ? themeData.colors.primary : iconColor
 	return (
 		<div
@@ -49,8 +49,8 @@ export const OverrideHeader: React.FC<OverrideHeaderProps> = ({
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "center",
-						width: DESIGN_TOKENS.icons.badge,
-						height: DESIGN_TOKENS.icons.badge,
+						width: DESIGN_SYSTEM.icons.badge,
+						height: DESIGN_SYSTEM.icons.badge,
 						borderRadius: "50%",
 						background:
 							theme === "celebration" && "icon" in themeData.gradients
@@ -62,13 +62,13 @@ export const OverrideHeader: React.FC<OverrideHeaderProps> = ({
 								? "icon" in themeData.shadows
 									? themeData.shadows.icon
 									: themeData.shadows.glow
-								: `${DESIGN_TOKENS.shadows.badge} color-mix(in srgb, ${effectiveIconColor} 40%, transparent)`,
+								: `${DESIGN_SYSTEM.shadows.badge} color-mix(in srgb, ${effectiveIconColor} 40%, transparent)`,
 					}}>
 					<span
 						className={`codicon codicon-${icon}`}
 						style={{
 							color: "white",
-							fontSize: DESIGN_TOKENS.icons.standard,
+							fontSize: DESIGN_SYSTEM.icons.standard,
 							fontWeight: "bold",
 						}}
 					/>
@@ -78,7 +78,7 @@ export const OverrideHeader: React.FC<OverrideHeaderProps> = ({
 					style={{
 						color: "var(--vscode-foreground)",
 						fontWeight: "700",
-						fontSize: DESIGN_TOKENS.typography.headerTitle,
+						fontSize: DESIGN_SYSTEM.typography.headerTitle,
 					}}>
 					{title}
 				</span>
@@ -94,7 +94,7 @@ export const OverrideHeader: React.FC<OverrideHeaderProps> = ({
 					<span
 						className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
 						style={{
-							fontSize: DESIGN_TOKENS.icons.large,
+							fontSize: DESIGN_SYSTEM.icons.large,
 							color: iconColor,
 							transition: "transform 0.2s ease",
 						}}
@@ -122,7 +122,7 @@ export const OverrideBadge: React.FC<OverrideBadgeProps> = ({
 	className,
 }) => {
 	const badgeBackground =
-		background || `color-mix(in srgb, ${color} ${DESIGN_TOKENS.colorMix.badge}, var(--vscode-editor-background))`
+		background || `color-mix(in srgb, ${color} ${DESIGN_SYSTEM.colorMix.badge}, var(--vscode-editor-background))`
 
 	return (
 		<div
@@ -130,11 +130,11 @@ export const OverrideBadge: React.FC<OverrideBadgeProps> = ({
 			style={{
 				background: badgeBackground,
 				border: `1px solid ${color}`,
-				borderRadius: DESIGN_TOKENS.radius.badge,
-				padding: DESIGN_TOKENS.spacing.badgePadding,
+				borderRadius: DESIGN_SYSTEM.radius.badge,
+				padding: DESIGN_SYSTEM.spacing.badgePadding,
 				color,
 				fontWeight: "700",
-				fontSize: DESIGN_TOKENS.typography.badge,
+				fontSize: DESIGN_SYSTEM.typography.badge,
 			}}>
 			{children}
 		</div>
@@ -162,13 +162,13 @@ export const OverrideGradientBadge: React.FC<OverrideGradientBadgeProps> = ({
 			className={cn("inline-flex items-center", className)}
 			style={{
 				background: `linear-gradient(45deg, ${gradientFrom}, ${gradientTo})`,
-				borderRadius: DESIGN_TOKENS.radius.badge,
-				padding: DESIGN_TOKENS.spacing.badgePaddingLg,
+				borderRadius: DESIGN_SYSTEM.radius.badge,
+				padding: DESIGN_SYSTEM.spacing.badgePaddingLg,
 				color: "white",
 				fontWeight: "700",
-				fontSize: DESIGN_TOKENS.typography.badge,
+				fontSize: DESIGN_SYSTEM.typography.badge,
 				textShadow: "0 1px 2px rgba(0,0,0,0.3)",
-				boxShadow: `${DESIGN_TOKENS.shadows.badge} color-mix(in srgb, ${gradientTo} 30%, transparent)`,
+				boxShadow: `${DESIGN_SYSTEM.shadows.badge} color-mix(in srgb, ${gradientTo} 30%, transparent)`,
 			}}>
 			{children}
 		</div>

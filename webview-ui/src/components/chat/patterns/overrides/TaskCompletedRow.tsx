@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Markdown } from "../../Markdown"
+import { DESIGN_SYSTEM } from "../../theme/chatDefaults"
 
 interface TaskCompletedRowProps {
 	text?: string
@@ -22,7 +23,7 @@ export const TaskCompletedRow = ({ text }: TaskCompletedRowProps) => {
 	return (
 		<div
 			style={{
-				margin: "12px 0",
+				margin: DESIGN_SYSTEM.spacing.cardMargin,
 				border: `2px solid ${darkGreenColor}`,
 				borderRadius: "8px",
 				background: `color-mix(in srgb, ${greenColor} 8%, var(--vscode-editor-background))`,
@@ -44,9 +45,9 @@ export const TaskCompletedRow = ({ text }: TaskCompletedRowProps) => {
 
 			{/* Header */}
 			<div
-				className="flex items-center justify-between gap-3 p-4 cursor-pointer transition-all duration-200"
+				className={`flex items-center justify-between ${DESIGN_SYSTEM.spacing.componentElementGap} ${DESIGN_SYSTEM.spacing.overrideHeaderPadding} cursor-pointer transition-all duration-200`}
 				onClick={() => setIsExpanded(!isExpanded)}>
-				<div className="flex items-center gap-3">
+				<div className={`flex items-center ${DESIGN_SYSTEM.spacing.componentElementGap}`}>
 					<div
 						style={{
 							display: "flex",
@@ -79,12 +80,12 @@ export const TaskCompletedRow = ({ text }: TaskCompletedRowProps) => {
 					</span>
 				</div>
 
-				<div className="flex items-center gap-3">
+				<div className={`flex items-center ${DESIGN_SYSTEM.spacing.componentElementGap}`}>
 					<div
 						style={{
 							background: `linear-gradient(45deg, ${greenColor}, ${goldColor})`,
 							borderRadius: "12px",
-							padding: "6px 12px",
+							padding: DESIGN_SYSTEM.spacing.badgePaddingLg,
 							color: "white",
 							fontWeight: "700",
 							fontSize: "13px",
@@ -107,17 +108,17 @@ export const TaskCompletedRow = ({ text }: TaskCompletedRowProps) => {
 
 			{isExpanded && text && (
 				<div
+					className={DESIGN_SYSTEM.spacing.componentContentPadding}
 					style={{
-						padding: "20px",
 						borderTop: `1px solid color-mix(in srgb, ${greenColor} 20%, transparent)`,
 						backgroundColor: "var(--vscode-textCodeBlock-background)",
 					}}>
 					<div
+						className={DESIGN_SYSTEM.spacing.componentCodePadding}
 						style={{
 							fontSize: "14px",
 							color: "var(--vscode-foreground)",
 							lineHeight: "1.6",
-							padding: "16px",
 							background: `color-mix(in srgb, ${greenColor} 3%, var(--vscode-input-background))`,
 							borderRadius: "6px",
 							border: `1px solid color-mix(in srgb, ${greenColor} 20%, var(--vscode-input-border))`,

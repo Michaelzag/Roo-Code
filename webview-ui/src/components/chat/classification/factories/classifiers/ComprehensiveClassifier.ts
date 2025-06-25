@@ -37,7 +37,7 @@ export class ComprehensiveClassifier implements ClassificationFactory {
 		{
 			priority: 5,
 			pattern:
-				/(codebase.*search|codebaseSearch|search.*code|find.*code|listCodeDefinitionNames|fetchInstructions)/i,
+				/(codebase.*search|codebase_search|codebaseSearch|search.*code|find.*code|listCodeDefinitionNames|fetchInstructions)/i,
 			semantic: "codebase-search" as const,
 		},
 		{ priority: 4, pattern: /(think|reason|analyz)/i, semantic: "thinking" as const },
@@ -80,12 +80,7 @@ export class ComprehensiveClassifier implements ClassificationFactory {
 			"condense_context",
 			"condense_context_error",
 		]),
-		SYSTEM_STATUS: new Set([
-			"api_req_finished",
-			"shell_integration_warning",
-			"checkpoint_saved",
-			"codebase_search_result",
-		]),
+		SYSTEM_STATUS: new Set(["api_req_finished", "shell_integration_warning", "checkpoint_saved"]),
 	}
 
 	canClassify(_parsed: ParsedMessage): boolean {
@@ -251,6 +246,19 @@ export class ComprehensiveClassifier implements ClassificationFactory {
 			}
 
 			case "tool": {
+				// Quick check: must look like JSON before attempting to parse
+				const text = message.text?.trim()
+				if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+					const fallbackSemantic: SemanticType = "search"
+					return {
+						type: "standard",
+						pattern: "bubble",
+						semantic: fallbackSemantic,
+						color: this.getColorFromSemantic(fallbackSemantic),
+						variant: "work",
+					}
+				}
+
 				const rawTool = safeJsonParse<any>(message.text)
 
 				if (rawTool && rawTool.question) {
@@ -400,6 +408,31 @@ export class ComprehensiveClassifier implements ClassificationFactory {
 					variant: "work",
 				}
 			}
+
+			case "codebase_search_result": {
+				const semantic: SemanticType = "codebase-search"
+				return {
+					type: "standard",
+					pattern: "bubble",
+					semantic,
+					color: this.getColorFromSemantic(semantic),
+					variant: "work",
+				}
+			}
+		}
+
+		// Quick check: must look like JSON before attempting to parse
+		const text = message.text?.trim()
+		if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+			// Default for say messages
+			const semantic: SemanticType = "search"
+			return {
+				type: "standard",
+				pattern: "bubble",
+				semantic,
+				color: this.getColorFromSemantic(semantic),
+				variant: "work",
+			}
 		}
 
 		const toolData = safeJsonParse<any>(message.text)
@@ -451,6 +484,11 @@ export class ComprehensiveClassifier implements ClassificationFactory {
 
 	private isProtectedFileOperation(message: ClineMessage): boolean {
 		if (message.type === "ask" && message.ask === "tool") {
+			// Quick check: must look like JSON before attempting to parse
+			const text = message.text?.trim()
+			if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+				return false
+			}
 			const tool = safeJsonParse<ClineSayTool>(message.text)
 			if (this.validateTool(tool)) {
 				if ((tool as any).isProtected === true) {
