@@ -466,6 +466,14 @@ export class FileWatcher implements IFileWatcher {
 		)
 
 		// Finalize
+		// Append synthetic success entries with newHash for files that were indexed in this batch
+		try {
+			for (const { path, newHash } of successfullyProcessedForUpsert) {
+				if (path && newHash) {
+					batchResults.push({ path, status: "success", newHash }) as any
+				}
+			}
+		} catch {}
 		this._onDidFinishBatchProcessing.fire({
 			processedFiles: batchResults,
 			batchError: overallBatchError,

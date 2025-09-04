@@ -351,6 +351,38 @@
 		"error": "Index error",
 		"status": "Index status"
 	},
+	"memoryStatus": {
+		"ready": "Memory ready",
+		"disabled": "Memory disabled",
+		"notInitialized": "Memory initializing",
+		"codeIndexNotConfigured": "Code Index required",
+		"error": "Memory error"
+	},
+	"memoryOperation": {
+		"search": "Searching memories",
+		"store": "Storing memory",
+		"extract": "Extracting facts",
+		"sync": "Syncing memories",
+		"inProgress": "Processing...",
+		"completed": "Completed",
+		"failed": "Failed",
+		"started": "Started"
+	},
+	"memorySettings": {
+		"title": "Conversation Memory",
+		"codeIndexRequired": "Code Index Required",
+		"codeIndexRequiredDesc": "Conversation Memory requires Code Index to be configured. Please configure Code Index first using the database icon.",
+		"enable": "Enable Conversation Memory",
+		"enableDesc": "Automatically extract and store important facts from conversations",
+		"promptBudget": "Prompt Budget (tokens)",
+		"promptBudgetDesc": "Maximum tokens to use for memory context in prompts",
+		"toolLimit": "Search Result Limit",
+		"toolLimitDesc": "Maximum number of memories to retrieve per search",
+		"dailyBudget": "Daily Processing Budget",
+		"dailyBudgetDesc": "Maximum daily spend for memory extraction (USD)",
+		"statusReady": "Memory system ready",
+		"statusInitializing": "Initializing..."
+	},
 	"versionIndicator": {
 		"ariaLabel": "Version {{version}} - Click to view release notes"
 	},

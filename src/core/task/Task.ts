@@ -264,6 +264,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	isStreaming = false
 	currentStreamingContentIndex = 0
 	currentStreamingDidCheckpoint = false
+	// Memory ingestion: ensure per-turn ingestion triggers only once
+	currentStreamingDidMemoryIngest = false
 	assistantMessageContent: AssistantMessageContent[] = []
 	presentAssistantMessageLocked = false
 	presentAssistantMessageHasPendingUpdates = false
@@ -273,6 +275,8 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 	didAlreadyUseTool = false
 	didCompleteReadingStream = false
 	assistantMessageParser: AssistantMessageParser
+	// Memory integration: last executed tool info for turn-level ingestion
+	memoryLastTool?: { name: string; params: any; resultText?: string }
 	private lastUsedInstructions?: string
 	private skipPrevResponseIdOnce: boolean = false
 
@@ -1786,6 +1790,7 @@ export class Task extends EventEmitter<TaskEvents> implements TaskLike {
 				// Reset streaming state.
 				this.currentStreamingContentIndex = 0
 				this.currentStreamingDidCheckpoint = false
+				this.currentStreamingDidMemoryIngest = false
 				this.assistantMessageContent = []
 				this.didCompleteReadingStream = false
 				this.userMessageContent = []

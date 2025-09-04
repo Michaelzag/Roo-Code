@@ -36,6 +36,8 @@ import { Task } from "../task/Task"
 import { codebaseSearchTool } from "../tools/codebaseSearchTool"
 import { experiments, EXPERIMENT_IDS } from "../../shared/experiments"
 import { applyDiffToolLegacy } from "../tools/applyDiffTool"
+import { ConversationMemoryManager } from "../../services/conversation-memory/manager"
+import type { Message as MemoryMessage } from "../../services/conversation-memory/types"
 
 /**
  * Processes and presents assistant message content to the user interface.
@@ -224,6 +226,10 @@ export async function presentAssistantMessage(cline: Task) {
 					}
 					case "generate_image":
 						return `[${block.name} for '${block.params.path}']`
+					case "memory_search":
+						return `[${block.params.query ? `${block.name} for '${block.params.query}'` : block.name}]`
+					default:
+						return `[${block.name}]`
 				}
 			}
 
@@ -419,6 +425,10 @@ export async function presentAssistantMessage(cline: Task) {
 				}
 			}
 
+			// Track tool for memory ingestion
+			const userContentStartIndexForMemory = cline.userMessageContent.length
+			cline.memoryLastTool = { name: block.name, params: block.params }
+
 			switch (block.name) {
 				case "write_to_file":
 					await checkpointSaveAndMark(cline)
@@ -489,6 +499,11 @@ export async function presentAssistantMessage(cline: Task) {
 				case "codebase_search":
 					await codebaseSearchTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
 					break
+				case "memory_search":
+					await (
+						await import("../tools/memorySearchTool")
+					).memorySearchTool(cline, block, askApproval, handleError, pushToolResult, removeClosingTag)
+					break
 				case "list_code_definition_names":
 					await listCodeDefinitionNamesTool(
 						cline,
@@ -554,6 +569,18 @@ export async function presentAssistantMessage(cline: Task) {
 					break
 			}
 
+			// Capture tool result text appended to userMessageContent
+			try {
+				const added = cline.userMessageContent.slice(userContentStartIndexForMemory)
+				const resultText = added
+					.filter((b) => b?.type === "text" && typeof (b as any).text === "string")
+					.map((b: any) => b.text as string)
+					.join("\n")
+				if (cline.memoryLastTool) cline.memoryLastTool.resultText = resultText
+			} catch {
+				// ignore
+			}
+
 			break
 	}
 
@@ -584,6 +611,98 @@ export async function presentAssistantMessage(cline: Task) {
 			// continue on and all potential content blocks be presented.
 			// Last block is complete and it is finished executing
 			cline.userMessageContentReady = true // Will allow `pWaitFor` to continue.
+
+			// Memory ingestion: trigger once per completed assistant turn (user + assistant pair)
+			try {
+				// Avoid duplicate ingestion within the same streaming turn
+				if (!(cline as any).currentStreamingDidMemoryIngest) {
+					// Get provider reference outside setTimeout to use in catch block
+					const provider = cline.providerRef.deref()
+
+					// Defer slightly to allow history to be finalized
+					setTimeout(async () => {
+						try {
+							// Double-check flag after delay
+							if ((cline as any).currentStreamingDidMemoryIngest) return
+							const context = provider?.context
+							const cwd = cline.cwd && cline.cwd.trim() !== "" ? cline.cwd : undefined
+
+							// Manager guards
+							if (!context) return
+							const manager = ConversationMemoryManager.getInstance(context, cwd)
+							if (!manager || !manager.isFeatureEnabled || !manager.isInitialized) return
+
+							// Build strict last user + assistant pair from recent history
+							const recent = buildRecentMemoryMessages(cline, 6)
+							let aiIndex = -1
+							for (let i = recent.length - 1; i >= 0; i--) {
+								if (recent[i].role === "assistant") {
+									aiIndex = i
+									break
+								}
+							}
+							if (aiIndex <= 0) return // need at least one prior message
+							let userIndex = -1
+							for (let i = aiIndex - 1; i >= 0; i--) {
+								if (recent[i].role === "user") {
+									userIndex = i
+									break
+								}
+							}
+							if (userIndex < 0) return
+
+							const pair = [recent[userIndex], recent[aiIndex]] as MemoryMessage[]
+							const modelId = cline.api?.getModel?.().id
+							const toolMeta = cline.memoryLastTool ? { ...cline.memoryLastTool } : undefined
+
+							// Notify UI: extraction started
+							try {
+								provider?.postMessageToWebview?.({
+									type: "conversationMemoryOperation",
+									payload: {
+										operation: "extract",
+										status: "started",
+										message: "Processing conversation turn",
+									} as any,
+								})
+							} catch {}
+
+							// Mark before awaiting to avoid racey double-calls
+							;(cline as any).currentStreamingDidMemoryIngest = true
+							await manager.ingestTurn(pair as any, cline.api as any, modelId, toolMeta as any)
+							// Notify UI: extraction completed
+							try {
+								provider?.postMessageToWebview?.({
+									type: "conversationMemoryOperation",
+									payload: {
+										operation: "extract",
+										status: "completed",
+										message: "Turn processed",
+									} as any,
+								})
+							} catch {}
+						} catch (err) {
+							// Non-fatal: log to console
+							console.error(
+								"[presentAssistantMessage] Memory ingestion error:",
+								(err as any)?.message || err,
+							)
+							try {
+								provider?.postMessageToWebview?.({
+									type: "conversationMemoryOperation",
+									payload: {
+										operation: "extract",
+										status: "failed",
+										message: (err as any)?.message || String(err),
+									} as any,
+								})
+							} catch {}
+						}
+					}, 0)
+				}
+			} catch {
+				// best-effort
+			}
 		}
 
 		// Call next block if it exists (if not then read stream will call it
@@ -604,6 +723,36 @@ export async function presentAssistantMessage(cline: Task) {
 	if (cline.presentAssistantMessageHasPendingUpdates) {
 		presentAssistantMessage(cline)
 	}
+}
+
+function buildRecentMemoryMessages(cline: Task, maxCount: number): MemoryMessage[] {
+	const history = cline.apiConversationHistory || []
+	const recent = history.slice(-maxCount)
+	const toText = (c: any): string => {
+		if (typeof c === "string") return c
+		if (Array.isArray(c)) {
+			return c
+				.map((b: any) => (typeof b === "string" ? b : typeof b?.text === "string" ? b.text : ""))
+				.filter((t: string) => t)
+				.join("\n")
+		}
+		try {
+			return JSON.stringify(c)
+		} catch {
+			return String(c)
+		}
+	}
+
+	const out: MemoryMessage[] = []
+	for (const m of recent) {
+		const role = (m as any)?.role
+		if (role !== "user" && role !== "assistant") continue
+		const content = toText((m as any)?.content)
+		if (!content || !content.trim()) continue
+		const ts = (m as any)?.ts
+		out.push({ role, content, timestamp: typeof ts === "number" ? new Date(ts).toISOString() : undefined })
+	}
+	return out
 }
 
 /**

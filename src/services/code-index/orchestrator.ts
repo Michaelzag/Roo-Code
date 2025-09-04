@@ -73,6 +73,30 @@ export class CodeIndexOrchestrator {
 						const errorCount = summary.processedFiles.filter(
 							(f: { status: string }) => f.status === "error" || f.status === "local_error",
 						).length
+						// Emit per-file processed events for subscribers (conversation memory)
+						const files: Array<{
+							path: string
+							newHash?: string
+							status: string
+							op?: "index" | "delete" | "change"
+						}> = []
+						for (const f of summary.processedFiles as any[]) {
+							if (!f?.path) continue
+							const op: "index" | "delete" | "change" = f.newHash
+								? "index"
+								: f.status === "success"
+									? "delete"
+									: "change"
+							files.push({ path: f.path, newHash: f.newHash, status: f.status, op })
+						}
+						try {
+							if (files.length) this.stateManager.reportFilesIndexed(files)
+						} catch (e) {
+							console.warn(
+								"[CodeIndexOrchestrator] Failed to report files indexed:",
+								(e as any)?.message || e,
+							)
+						}
 					}
 				}),
 			]

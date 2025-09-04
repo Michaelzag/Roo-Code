@@ -80,6 +80,10 @@ export class CodeIndexManager {
 		return this._stateManager.onProgressUpdate
 	}
 
+	public get onFilesIndexed() {
+		return this._stateManager.onFilesIndexed
+	}
+
 	private assertInitialized() {
 		if (!this._configManager || !this._orchestrator || !this._searchService || !this._cacheManager) {
 			throw new Error("CodeIndexManager not initialized. Call initialize() first.")
@@ -109,6 +113,14 @@ export class CodeIndexManager {
 		} catch (error) {
 			return false
 		}
+	}
+
+	/**
+	 * Gets the config manager instance for sharing with other services
+	 * @returns The config manager instance if initialized
+	 */
+	public getConfigManager(): CodeIndexConfigManager | undefined {
+		return this._configManager
 	}
 
 	/**

@@ -49,3 +49,6 @@ logs
 
 # Qdrant
 qdrant_storage/
+
+# Conversation Memory Documentation (only on conversation-memory branch)
+conversation-memory-docs/

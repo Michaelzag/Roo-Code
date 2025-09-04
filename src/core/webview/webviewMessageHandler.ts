@@ -23,7 +23,13 @@ import { Package } from "../../shared/package"
 import { RouterName, toRouterName, ModelRecord } from "../../shared/api"
 import { MessageEnhancer } from "./messageEnhancer"
 
-import { checkoutDiffPayloadSchema, checkoutRestorePayloadSchema, WebviewMessage } from "../../shared/WebviewMessage"
+import {
+	checkoutDiffPayloadSchema,
+	checkoutRestorePayloadSchema,
+	WebviewMessage,
+	ConversationMemoryStatusPayload,
+	ConversationMemoryOperationPayload,
+} from "../../shared/WebviewMessage"
 import { checkExistKey } from "../../shared/checkExistApiConfig"
 import { experimentDefault } from "../../shared/experiments"
 import { Terminal } from "../../integrations/terminal/Terminal"
@@ -2183,6 +2189,21 @@ export const webviewMessageHandler = async (
 							}
 						}
 					}
+
+					// Initialize conversation memory manager if enabled
+					const currentMemoryManager = provider.getCurrentWorkspaceConversationMemoryManager()
+					if (currentMemoryManager && currentMemoryManager.isFeatureEnabled) {
+						if (!currentMemoryManager.isInitialized) {
+							try {
+								await currentMemoryManager.initialize(provider.contextProxy)
+								provider.log(`Conversation memory manager initialized after settings save`)
+							} catch (error) {
+								provider.log(
+									`Conversation memory initialization failed: ${error instanceof Error ? error.message : String(error)}`,
+								)
+							}
+						}
+					}
 				} else {
 					// No workspace open - send error status
 					provider.log("Cannot save code index settings: No workspace folder open")
@@ -2205,6 +2226,24 @@ export const webviewMessageHandler = async (
 					error: error.message || "Failed to save settings",
 				})
 			}
+			break
+		}
+
+		case "conversationMemoryStatus": {
+			const memoryManager = provider.getCurrentWorkspaceConversationMemoryManager()
+			const payload: ConversationMemoryStatusPayload = {
+				initialized: memoryManager?.isInitialized ?? false,
+				enabled: memoryManager?.isFeatureEnabled ?? false,
+				codeIndexConfigured: (() => {
+					const codeIndexMgr = provider.getCurrentWorkspaceCodeIndexManager()
+					return (codeIndexMgr?.isFeatureEnabled && codeIndexMgr?.isFeatureConfigured) ?? false
+				})(),
+				message: memoryManager?.isInitialized ? "Ready" : "Not initialized",
+			}
+			await provider.postMessageToWebview({
+				type: "conversationMemoryStatus",
+				payload,
+			})
 			break
 		}
 
@@ -2331,6 +2370,77 @@ export const webviewMessageHandler = async (
 						success: false,
 						error: error instanceof Error ? error.message : String(error),
 					},
+				})
+			}
+			break
+		}
+
+		case "clearConversationMemory": {
+			try {
+				const memoryManager = provider.getCurrentWorkspaceConversationMemoryManager()
+				if (!memoryManager) {
+					provider.log("Cannot clear conversation memory: No workspace folder open")
+					provider.postMessageToWebview({
+						type: "conversationMemoryCleared",
+						values: { success: false, error: "No workspace open" },
+					})
+					break
+				}
+				await memoryManager.clearMemoryData()
+				provider.postMessageToWebview({ type: "conversationMemoryCleared", values: { success: true } })
+			} catch (error: any) {
+				provider.log(`Error clearing conversation memory: ${error?.message || String(error)}`)
+				provider.postMessageToWebview({
+					type: "conversationMemoryCleared",
+					values: { success: false, error: error?.message || String(error) },
+				})
+			}
+			break
+		}
+
+		case "memorySearch": {
+			try {
+				const { query, limit, category } = message as any
+				const memoryManager = provider.getCurrentWorkspaceConversationMemoryManager()
+				if (!memoryManager) {
+					provider.postMessageToWebview({
+						type: "memorySearchResults",
+						values: { success: false, error: "No workspace open" },
+					})
+					break
+				}
+				if (!query || typeof query !== "string" || !query.trim()) {
+					provider.postMessageToWebview({
+						type: "memorySearchResults",
+						values: { success: false, error: "Query is required" },
+					})
+					break
+				}
+
+				const k = typeof limit === "number" && limit > 0 ? limit : 10
+				let results: any = {}
+				let success = true
+				try {
+					const episodes = await memoryManager.searchEpisodes(query, k)
+					if (episodes && episodes.length > 0) {
+						results.episodes = episodes
+					} else {
+						const facts = await memoryManager.searchMemory(query)
+						results.facts = facts
+					}
+				} catch (e: any) {
+					success = false
+					results = { error: e?.message || String(e) }
+				}
+
+				provider.postMessageToWebview({
+					type: "memorySearchResults",
+					values: { success, query, ...results },
+				})
+			} catch (error: any) {
+				provider.postMessageToWebview({
+					type: "memorySearchResults",
+					values: { success: false, error: error?.message || String(error) },
 				})
 			}
 			break

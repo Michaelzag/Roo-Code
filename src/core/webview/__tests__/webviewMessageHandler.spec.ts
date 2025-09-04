@@ -634,3 +634,40 @@ describe("webviewMessageHandler - mcpEnabled", () => {
 		expect(mockClineProvider.postStateToWebview).toHaveBeenCalledTimes(1)
 	})
 })
+
+describe("webviewMessageHandler - clearConversationMemory", () => {
+	const mockProvider: any = ((): any => {
+		return (global as any).mockClineProvider || ({} as any)
+	})()
+
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	it("clears conversation memory and posts success", async () => {
+		const clearSpy = vi.fn().mockResolvedValue(undefined)
+		;(mockClineProvider as any).getCurrentWorkspaceConversationMemoryManager = vi
+			.fn()
+			.mockReturnValue({ clearMemoryData: clearSpy })
+
+		await webviewMessageHandler(mockClineProvider as any, { type: "clearConversationMemory" } as any)
+
+		expect((mockClineProvider as any).getCurrentWorkspaceConversationMemoryManager).toHaveBeenCalledTimes(1)
+		expect(clearSpy).toHaveBeenCalledTimes(1)
+		expect((mockClineProvider as any).postMessageToWebview).toHaveBeenCalledWith({
+			type: "conversationMemoryCleared",
+			values: { success: true },
+		})
+	})
+
+	it("handles missing manager and posts error", async () => {
+		;(mockClineProvider as any).getCurrentWorkspaceConversationMemoryManager = vi.fn().mockReturnValue(undefined)
+
+		await webviewMessageHandler(mockClineProvider as any, { type: "clearConversationMemory" } as any)
+
+		expect((mockClineProvider as any).postMessageToWebview).toHaveBeenCalledWith({
+			type: "conversationMemoryCleared",
+			values: { success: false, error: "No workspace open" },
+		})
+	})
+})

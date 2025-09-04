@@ -45,6 +45,11 @@ export const globalSettingsSchema = z.object({
 	// Image generation settings (experimental) - flattened for simplicity
 	openRouterImageApiKey: z.string().optional(),
 	openRouterImageGenerationSelectedModel: z.string().optional(),
+	// Conversation memory settings (experimental) - flattened like image generation
+	conversationMemoryEnabled: z.boolean().optional(),
+	conversationMemoryPromptBudgetTokens: z.number().optional(),
+	conversationMemoryToolDefaultLimit: z.number().optional(),
+	conversationMemoryDailyBudgetUSD: z.number().optional(),
 
 	condensingApiConfigId: z.string().optional(),
 	customCondensingPrompt: z.string().optional(),

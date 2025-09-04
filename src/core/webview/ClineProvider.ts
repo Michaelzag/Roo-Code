@@ -66,6 +66,7 @@ import { MarketplaceManager } from "../../services/marketplace"
 import { ShadowCheckpointService } from "../../services/checkpoints/ShadowCheckpointService"
 import { CodeIndexManager } from "../../services/code-index/manager"
 import type { IndexProgressUpdate } from "../../services/code-index/interfaces/manager"
+import { ConversationMemoryManager } from "../../services/conversation-memory/manager"
 import { MdmService } from "../../services/mdm/MdmService"
 
 import { fileExistsAtPath } from "../../utils/fs"
@@ -1933,6 +1934,11 @@ export class ClineProvider
 			// Add image generation settings
 			openRouterImageApiKey: stateValues.openRouterImageApiKey,
 			openRouterImageGenerationSelectedModel: stateValues.openRouterImageGenerationSelectedModel,
+			// Conversation memory settings (flat like other settings)
+			conversationMemoryEnabled: stateValues.conversationMemoryEnabled ?? false,
+			conversationMemoryPromptBudgetTokens: stateValues.conversationMemoryPromptBudgetTokens ?? 400,
+			conversationMemoryToolDefaultLimit: stateValues.conversationMemoryToolDefaultLimit ?? 10,
+			conversationMemoryDailyBudgetUSD: stateValues.conversationMemoryDailyBudgetUSD ?? 1.0,
 		}
 	}
 
@@ -2096,6 +2102,28 @@ export class ClineProvider
 	 */
 	public getCurrentWorkspaceCodeIndexManager(): CodeIndexManager | undefined {
 		return CodeIndexManager.getInstance(this.context)
+	}
+
+	/**
+	 * Gets the ConversationMemoryManager for the current active workspace
+	 * @returns ConversationMemoryManager instance for the current workspace or the default one
+	 */
+	private _cachedConversationMemoryManager?: ConversationMemoryManager | undefined
+	private _lastWorkspacePath?: string
+
+	public getCurrentWorkspaceConversationMemoryManager(): ConversationMemoryManager | undefined {
+		const currentWorkspacePath = this.cwd
+
+		// Cache the manager to avoid repeated getInstance calls
+		if (this._lastWorkspacePath !== currentWorkspacePath || !this._cachedConversationMemoryManager) {
+			this._cachedConversationMemoryManager = ConversationMemoryManager.getInstance(
+				this.context,
+				currentWorkspacePath,
+			)
+			this._lastWorkspacePath = currentWorkspacePath
+		}
+
+		return this._cachedConversationMemoryManager
 	}
 
 	/**

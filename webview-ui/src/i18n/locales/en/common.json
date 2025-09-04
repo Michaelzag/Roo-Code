@@ -14,6 +14,9 @@
 		"remove": "Remove",
 		"keep": "Keep"
 	},
+	"cancel": "Cancel",
+	"save": "Save",
+	"saving": "Saving...",
 	"number_format": {
 		"thousand_suffix": "k",
 		"million_suffix": "m",

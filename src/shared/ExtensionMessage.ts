@@ -50,6 +50,16 @@ export interface IndexingStatusUpdateMessage {
 	values: IndexingStatus
 }
 
+export interface ConversationMemoryStatusMessage {
+	type: "conversationMemoryStatus"
+	payload: any
+}
+
+export interface ConversationMemoryOperationMessage {
+	type: "conversationMemoryOperation"
+	payload: any
+}
+
 export interface LanguageModelChatSelector {
 	vendor?: string
 	family?: string
@@ -112,6 +122,10 @@ export interface ExtensionMessage {
 		| "indexingStatusUpdate"
 		| "indexCleared"
 		| "codebaseIndexConfig"
+		| "conversationMemoryStatus"
+		| "conversationMemoryOperation"
+		| "conversationMemoryCleared"
+		| "memorySearchResults"
 		| "marketplaceInstallResult"
 		| "marketplaceRemoveResult"
 		| "marketplaceData"
@@ -274,6 +288,9 @@ export type ExtensionState = Pick<
 	| "maxDiagnosticMessages"
 	| "remoteControlEnabled"
 	| "openRouterImageGenerationSelectedModel"
+	| "conversationMemoryPromptBudgetTokens"
+	| "conversationMemoryToolDefaultLimit"
+	| "conversationMemoryDailyBudgetUSD"
 > & {
 	version: string
 	clineMessages: ClineMessage[]

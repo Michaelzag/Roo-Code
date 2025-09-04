@@ -215,6 +215,13 @@ export interface WebviewMessage {
 		| "imageGenerationSettings"
 		| "openRouterImageApiKey"
 		| "openRouterImageGenerationSelectedModel"
+		| "conversationMemoryPromptBudgetTokens"
+		| "conversationMemoryToolDefaultLimit"
+		| "conversationMemoryDailyBudgetUSD"
+		| "conversationMemoryStatus"
+		| "conversationMemoryOperation"
+		| "memorySearch"
+		| "clearConversationMemory"
 	text?: string
 	editedMessageContent?: string
 	tab?: "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
@@ -238,6 +245,7 @@ export interface WebviewMessage {
 	dataUrls?: string[]
 	values?: Record<string, any>
 	query?: string
+	limit?: number
 	setting?: string
 	slug?: string
 	modeConfig?: ModeConfig
@@ -314,6 +322,21 @@ export interface IndexClearedPayload {
 	error?: string
 }
 
+export interface ConversationMemoryStatusPayload {
+	initialized: boolean
+	enabled: boolean
+	codeIndexConfigured: boolean
+	message?: string
+}
+
+export interface ConversationMemoryOperationPayload {
+	operation: "search" | "store" | "extract" | "sync"
+	status: "started" | "completed" | "failed"
+	message?: string
+	resultCount?: number
+	error?: string
+}
+
 export const installMarketplaceItemWithParametersPayloadSchema = z.object({
 	item: marketplaceItemSchema,
 	parameters: z.record(z.string(), z.any()),
@@ -330,3 +353,5 @@ export type WebViewMessagePayload =
 	| IndexClearedPayload
 	| InstallMarketplaceItemWithParametersPayload
 	| UpdateTodoListPayload
+	| ConversationMemoryStatusPayload
+	| ConversationMemoryOperationPayload

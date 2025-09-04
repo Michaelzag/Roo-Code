@@ -12,6 +12,7 @@ import { isEmpty } from "../../utils/object"
 
 import { McpHub } from "../../services/mcp/McpHub"
 import { CodeIndexManager } from "../../services/code-index/manager"
+import { ConversationMemoryManager } from "../../services/conversation-memory/manager"
 
 import { PromptVariables, loadSystemPromptFile } from "./sections/custom-system-prompt"
 
@@ -87,6 +88,9 @@ async function generatePrompt(
 	])
 
 	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
+	const memoryManager = ConversationMemoryManager.getInstance(context, cwd)
+	// Check memory ready state (follows Code Index pattern)
+	const memoryReady = !!(memoryManager && memoryManager.isInitialized)
 
 	const basePrompt = `${roleDefinition}
 
@@ -105,7 +109,7 @@ ${getToolDescriptionsForMode(
 	customModeConfigs,
 	experiments,
 	partialReadsEnabled,
-	settings,
+	{ ...settings, conversationMemoryReady: memoryReady },
 	enableMcpServerCreation,
 	modelId,
 )}
@@ -121,6 +125,8 @@ ${modesSection}
 ${getRulesSection(cwd, supportsComputerUse, effectiveDiffStrategy, codeIndexManager)}
 
 ${getSystemInfoSection(cwd)}
+
+${await getRelevantMemorySection(context, cwd)}
 
 ${getObjectiveSection(codeIndexManager, experiments)}
 
@@ -226,4 +232,53 @@ ${customInstructions}`
 		todoList,
 		modelId,
 	)
+}
+
+async function getRelevantMemorySection(context: vscode.ExtensionContext, cwd: string): Promise<string> {
+	try {
+		const memoryEnabled = vscode.workspace.getConfiguration("roo.conversationMemory").get<boolean>("enabled", false)
+		if (!memoryEnabled) return ""
+		const manager = ConversationMemoryManager.getInstance(context, cwd)
+		if (!manager || !manager.isInitialized) return ""
+		const budget = vscode.workspace
+			.getConfiguration("roo.conversationMemory")
+			.get<number>("promptBudgetTokens", 400)
+		const q1 = "project tech stack"
+		const q2 = "architecture decisions"
+		const q3 = "recent debugging lessons"
+		const [a, b, c] = await Promise.all([
+			manager.searchMemory(q1),
+			manager.searchMemory(q2),
+			manager.searchMemory(q3),
+		])
+		const merged = [...a, ...b, ...c]
+		if (!merged.length) return ""
+		const seen = new Set<string>()
+		const items: string[] = []
+		for (const f of merged) {
+			const key = (f.category || "") + "::" + (f.content || "")
+			if (seen.has(key)) continue
+			seen.add(key)
+			const date = new Date(f.reference_time).toISOString().slice(0, 10)
+			items.push(`- ${f.category.toUpperCase()}: ${f.content} (${date})`)
+			if (items.length >= 8) break
+		}
+		if (!items.length) return ""
+		// Respect token budget approximately by trimming list and content
+		const approxTokens = (s: string) => Math.ceil(s.length / 4)
+		let section = `# Relevant Memory (auto)\n${items.join("\n")}`
+		while (approxTokens(section) > budget && items.length > 1) {
+			items.pop()
+			section = `# Relevant Memory (auto)\n${items.join("\n")}`
+		}
+		if (approxTokens(section) > budget) {
+			// As last resort, hard trim
+			const head = `# Relevant Memory (auto)\n`
+			const room = Math.max(0, budget * 4 - head.length)
+			section = head + items.join("\n").slice(0, room)
+		}
+		return section
+	} catch {
+		return ""
+	}
 }

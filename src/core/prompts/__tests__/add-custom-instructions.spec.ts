@@ -43,6 +43,18 @@ vi.mock("os-name", () => ({
 
 vi.mock("fs/promises")
 
+vi.mock("vscode", () => ({
+	workspace: {
+		getConfiguration: vi.fn(() => ({
+			get: vi.fn(() => false),
+		})),
+		workspaceFolders: [],
+	},
+	window: {
+		activeTextEditor: undefined,
+	},
+}))
+
 import * as vscode from "vscode"
 
 import { ModeConfig } from "@roo-code/types"

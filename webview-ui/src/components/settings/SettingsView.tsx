@@ -183,6 +183,9 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		includeTaskHistoryInEnhance,
 		openRouterImageApiKey,
 		openRouterImageGenerationSelectedModel,
+		conversationMemoryPromptBudgetTokens,
+		conversationMemoryToolDefaultLimit,
+		conversationMemoryDailyBudgetUSD,
 	} = cachedState
 
 	const apiConfiguration = useMemo(() => cachedState.apiConfiguration ?? {}, [cachedState.apiConfiguration])
@@ -266,6 +269,27 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 		setCachedState((prevState) => {
 			setChangeDetected(true)
 			return { ...prevState, openRouterImageApiKey: apiKey }
+		})
+	}, [])
+
+	const setConversationMemoryPromptBudgetTokens = useCallback((tokens: number) => {
+		setCachedState((prevState) => {
+			setChangeDetected(true)
+			return { ...prevState, conversationMemoryPromptBudgetTokens: tokens }
+		})
+	}, [])
+
+	const setConversationMemoryToolDefaultLimit = useCallback((limit: number) => {
+		setCachedState((prevState) => {
+			setChangeDetected(true)
+			return { ...prevState, conversationMemoryToolDefaultLimit: limit }
+		})
+	}, [])
+
+	const setConversationMemoryDailyBudgetUSD = useCallback((budget: number) => {
+		setCachedState((prevState) => {
+			setChangeDetected(true)
+			return { ...prevState, conversationMemoryDailyBudgetUSD: budget }
 		})
 	}, [])
 
@@ -363,6 +387,18 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			vscode.postMessage({
 				type: "openRouterImageGenerationSelectedModel",
 				text: openRouterImageGenerationSelectedModel,
+			})
+			vscode.postMessage({
+				type: "conversationMemoryPromptBudgetTokens",
+				value: conversationMemoryPromptBudgetTokens,
+			})
+			vscode.postMessage({
+				type: "conversationMemoryToolDefaultLimit",
+				value: conversationMemoryToolDefaultLimit,
+			})
+			vscode.postMessage({
+				type: "conversationMemoryDailyBudgetUSD",
+				value: conversationMemoryDailyBudgetUSD,
 			})
 			setChangeDetected(false)
 		}
@@ -750,6 +786,17 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 							}
 							setOpenRouterImageApiKey={setOpenRouterImageApiKey}
 							setImageGenerationSelectedModel={setImageGenerationSelectedModel}
+							codebaseIndexConfig={extensionState.codebaseIndexConfig}
+							conversationMemoryPromptBudgetTokens={
+								conversationMemoryPromptBudgetTokens as number | undefined
+							}
+							conversationMemoryToolDefaultLimit={
+								conversationMemoryToolDefaultLimit as number | undefined
+							}
+							conversationMemoryDailyBudgetUSD={conversationMemoryDailyBudgetUSD as number | undefined}
+							setConversationMemoryPromptBudgetTokens={setConversationMemoryPromptBudgetTokens}
+							setConversationMemoryToolDefaultLimit={setConversationMemoryToolDefaultLimit}
+							setConversationMemoryDailyBudgetUSD={setConversationMemoryDailyBudgetUSD}
 						/>
 					)}
 

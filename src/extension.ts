@@ -60,6 +60,26 @@ let userInfoHandler: ((data: { userInfo: CloudUserInfo }) => Promise<void>) | un
 // This method is called when your extension is activated.
 // Your extension is activated the very first time the command is executed.
 export async function activate(context: vscode.ExtensionContext) {
+	// Add uncaught exception handler to catch and log crashes
+	process.on("uncaughtException", (error) => {
+		console.error("[UNCAUGHT EXCEPTION] Fatal error occurred:", error)
+		console.error("[UNCAUGHT EXCEPTION] Stack trace:", error.stack)
+		if (outputChannel) {
+			outputChannel.appendLine(`[UNCAUGHT EXCEPTION] Fatal error: ${error.message}`)
+			outputChannel.appendLine(`[UNCAUGHT EXCEPTION] Stack: ${error.stack}`)
+		}
+		// Log to VS Code's standard error reporting
+		vscode.window.showErrorMessage(`Roo-Code Extension Error: ${error.message}`)
+	})
+
+	process.on("unhandledRejection", (reason, promise) => {
+		console.error("[UNHANDLED REJECTION] Unhandled promise rejection:", reason)
+		console.error("[UNHANDLED REJECTION] Promise:", promise)
+		if (outputChannel) {
+			outputChannel.appendLine(`[UNHANDLED REJECTION] ${reason}`)
+		}
+	})
+
 	extensionContext = context
 	outputChannel = vscode.window.createOutputChannel(Package.outputChannel)
 	context.subscriptions.push(outputChannel)
@@ -97,29 +117,135 @@ export async function activate(context: vscode.ExtensionContext) {
 		context.globalState.update("allowedCommands", defaultCommands)
 	}
 
+	outputChannel.appendLine("[Extension] Creating ContextProxy...")
+	console.log("[Extension] Creating ContextProxy...")
 	const contextProxy = await ContextProxy.getInstance(context)
+	outputChannel.appendLine("[Extension] ContextProxy created successfully")
+	console.log("[Extension] ContextProxy created successfully")
 
 	// Initialize code index managers for all workspace folders.
+	outputChannel.appendLine("[Extension] Starting Code Index manager initialization...")
+	console.log("[Extension] Starting Code Index manager initialization...")
 	const codeIndexManagers: CodeIndexManager[] = []
 
 	if (vscode.workspace.workspaceFolders) {
+		outputChannel.appendLine(
+			`[Extension] Found ${vscode.workspace.workspaceFolders.length} workspace folders for Code Index`,
+		)
 		for (const folder of vscode.workspace.workspaceFolders) {
+			outputChannel.appendLine(`[CodeIndexManager] Getting instance for: ${folder.uri.fsPath}`)
 			const manager = CodeIndexManager.getInstance(context, folder.uri.fsPath)
 
 			if (manager) {
 				codeIndexManagers.push(manager)
 
 				try {
+					outputChannel.appendLine(`[CodeIndexManager] Initializing for: ${folder.uri.fsPath}`)
 					await manager.initialize(contextProxy)
-				} catch (error) {
+					outputChannel.appendLine(`[CodeIndexManager] Successfully initialized for: ${folder.uri.fsPath}`)
+				} catch (error: any) {
 					outputChannel.appendLine(
-						`[CodeIndexManager] Error during background CodeIndexManager configuration/indexing for ${folder.uri.fsPath}: ${error.message || error}`,
+						`[CodeIndexManager] Error during background CodeIndexManager configuration/indexing for ${folder.uri.fsPath}: ${error?.message || error}`,
 					)
+					outputChannel.appendLine(`[CodeIndexManager] Stack trace: ${error?.stack || "No stack trace"}`)
 				}
 
 				context.subscriptions.push(manager)
+			} else {
+				outputChannel.appendLine(`[CodeIndexManager] No manager created for: ${folder.uri.fsPath}`)
 			}
 		}
+	} else {
+		outputChannel.appendLine("[Extension] No workspace folders found for Code Index")
+	}
+	outputChannel.appendLine("[Extension] Code Index manager initialization complete")
+
+	// Initialize conversation memory managers AFTER code index is complete
+	// This ensures proper dependency order
+	const memoryManagers: any[] = []
+	try {
+		outputChannel.appendLine("[ConversationMemory] Starting memory manager initialization (after Code Index)...")
+		console.log("[ConversationMemory] Importing manager module...")
+
+		const { ConversationMemoryManager } = await import("./services/conversation-memory/manager")
+
+		console.log("[ConversationMemory] Module imported successfully")
+		outputChannel.appendLine("[ConversationMemory] Module imported successfully")
+
+		if (vscode.workspace.workspaceFolders) {
+			outputChannel.appendLine(
+				`[ConversationMemory] Found ${vscode.workspace.workspaceFolders.length} workspace folders`,
+			)
+
+			for (const folder of vscode.workspace.workspaceFolders) {
+				try {
+					outputChannel.appendLine(`[ConversationMemory] Getting instance for: ${folder.uri.fsPath}`)
+					console.log("[ConversationMemory] Getting instance for:", folder.uri.fsPath)
+
+					const manager = ConversationMemoryManager.getInstance(context, folder.uri.fsPath)
+
+					if (manager) {
+						outputChannel.appendLine(
+							`[ConversationMemory] Manager instance created for: ${folder.uri.fsPath}`,
+						)
+						console.log("[ConversationMemory] Manager instance created")
+
+						memoryManagers.push(manager)
+
+						try {
+							outputChannel.appendLine(
+								`[ConversationMemory] Initializing manager for: ${folder.uri.fsPath}`,
+							)
+							console.log("[ConversationMemory] Calling initialize on manager...")
+
+							await manager.initialize(contextProxy)
+
+							outputChannel.appendLine(
+								`[ConversationMemory] Successfully initialized for ${folder.uri.fsPath}`,
+							)
+							console.log("[ConversationMemory] Manager initialized successfully")
+						} catch (error: any) {
+							outputChannel.appendLine(
+								`[ConversationMemory] Error during initialization for ${folder.uri.fsPath}: ${error?.message || String(error)}`,
+							)
+							outputChannel.appendLine(
+								`[ConversationMemory] Stack trace: ${error?.stack || "No stack trace"}`,
+							)
+							console.error("[ConversationMemory] Initialization error:", error)
+							console.error("[ConversationMemory] Stack:", error?.stack)
+						}
+
+						context.subscriptions.push(manager)
+					} else {
+						outputChannel.appendLine(`[ConversationMemory] No manager created for: ${folder.uri.fsPath}`)
+						console.log("[ConversationMemory] Manager was undefined")
+					}
+				} catch (instanceError: any) {
+					outputChannel.appendLine(
+						`[ConversationMemory] Failed to get instance for ${folder.uri.fsPath}: ${instanceError?.message || String(instanceError)}`,
+					)
+					outputChannel.appendLine(
+						`[ConversationMemory] Instance error stack: ${instanceError?.stack || "No stack trace"}`,
+					)
+					console.error("[ConversationMemory] Failed to get instance:", instanceError)
+					console.error("[ConversationMemory] Instance error stack:", instanceError?.stack)
+				}
+			}
+		} else {
+			outputChannel.appendLine("[ConversationMemory] No workspace folders found")
+			console.log("[ConversationMemory] No workspace folders")
+		}
+	} catch (e: any) {
+		outputChannel.appendLine(`[ConversationMemory] Failed to load module: ${e?.message || String(e)}`)
+		outputChannel.appendLine(`[ConversationMemory] Module load error stack: ${e?.stack || "No stack trace"}`)
+		outputChannel.appendLine(
+			"[ConversationMemory] Conversation Memory will be disabled. The extension will continue to work normally.",
+		)
+		outputChannel.appendLine(
+			"[ConversationMemory] To use Memory features, ensure Code Index is enabled and properly configured first.",
+		)
+		console.error("[ConversationMemory] Failed to load module:", e)
+		console.error("[ConversationMemory] Module error stack:", e?.stack)
 	}
 
 	// Initialize the provider *before* the Roo Code Cloud service.
@@ -369,4 +495,19 @@ export async function deactivate() {
 	await McpServerManager.cleanup(extensionContext)
 	TelemetryService.instance.shutdown()
 	TerminalRegistry.cleanup()
+
+	// Best-effort: finalize conversation memory session (flush any pending state)
+	try {
+		const { ConversationMemoryManager } = await import("./services/conversation-memory/manager")
+		if (vscode.workspace.workspaceFolders) {
+			for (const folder of vscode.workspace.workspaceFolders) {
+				const mgr = ConversationMemoryManager.getInstance(extensionContext, folder.uri.fsPath)
+				if (mgr && mgr.isFeatureEnabled) {
+					await mgr.finalizeSession().catch(() => {})
+				}
+			}
+		}
+	} catch {
+		// ignore
+	}
 }

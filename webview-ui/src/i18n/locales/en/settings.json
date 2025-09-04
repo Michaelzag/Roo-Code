@@ -707,6 +707,25 @@
 			"name": "Enable concurrent file reads",
 			"description": "When enabled, Roo can read multiple files in a single request. When disabled, Roo must read files one at a time. Disabling this can help when working with less capable models or when you want more control over file access."
 		},
+		"CONVERSATION_MEMORY": {
+			"name": "Conversation Memory",
+			"description": "Enable conversation memory to help Roo remember project context, architecture decisions, and debugging patterns across sessions.",
+			"promptBudgetLabel": "Prompt Budget (tokens)",
+			"promptBudgetDescription": "Maximum tokens to use for memory context injection (100-2000)",
+			"toolLimitLabel": "Memory Search Limit",
+			"toolLimitDescription": "Maximum number of memories to return per search (1-50)",
+			"dailyBudgetLabel": "Daily Processing Budget",
+			"dailyBudgetDescription": "Maximum daily spend for memory processing operations",
+			"advancedSettings": "Advanced Settings",
+			"advancedSettingsNote": "Advanced settings for fine-tuning memory behavior. These will be configurable in a future update.",
+			"advancedFeaturesTitle": "Coming Soon:",
+			"advancedFeature1": "Auto-extraction toggle for automatic fact extraction",
+			"advancedFeature2": "Processing mode selection (immediate vs buffered)",
+			"advancedFeature3": "Retention period configuration",
+			"advancedFeature4": "Similarity and temporal threshold tuning",
+			"warningQdrantConfig": "⚠️ Conversation memory requires Code Index to be configured with Qdrant. Please configure Code Index settings first.",
+			"infoMemoryUsage": "ℹ️ Memory storage uses your configured Qdrant instance. Facts are extracted and stored locally per workspace."
+		},
 		"MULTI_SEARCH_AND_REPLACE": {
 			"name": "Use experimental multi block diff tool",
 			"description": "When enabled, Roo will use multi block diff tool. This will try to update multiple code blocks in the file in one request."

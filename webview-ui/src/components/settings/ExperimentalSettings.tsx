@@ -13,6 +13,7 @@ import { SectionHeader } from "./SectionHeader"
 import { Section } from "./Section"
 import { ExperimentalFeature } from "./ExperimentalFeature"
 import { ImageGenerationSettings } from "./ImageGenerationSettings"
+import { ConversationMemorySettings } from "./ConversationMemorySettings"
 
 type ExperimentalSettingsProps = HTMLAttributes<HTMLDivElement> & {
 	experiments: Experiments
@@ -23,6 +24,13 @@ type ExperimentalSettingsProps = HTMLAttributes<HTMLDivElement> & {
 	openRouterImageGenerationSelectedModel?: string
 	setOpenRouterImageApiKey?: (apiKey: string) => void
 	setImageGenerationSelectedModel?: (model: string) => void
+	conversationMemoryPromptBudgetTokens?: number
+	conversationMemoryToolDefaultLimit?: number
+	conversationMemoryDailyBudgetUSD?: number
+	setConversationMemoryPromptBudgetTokens?: (tokens: number) => void
+	setConversationMemoryToolDefaultLimit?: (limit: number) => void
+	setConversationMemoryDailyBudgetUSD?: (budget: number) => void
+	codebaseIndexConfig?: any
 }
 
 export const ExperimentalSettings = ({
@@ -34,6 +42,13 @@ export const ExperimentalSettings = ({
 	openRouterImageGenerationSelectedModel,
 	setOpenRouterImageApiKey,
 	setImageGenerationSelectedModel,
+	conversationMemoryPromptBudgetTokens,
+	conversationMemoryToolDefaultLimit,
+	conversationMemoryDailyBudgetUSD,
+	setConversationMemoryPromptBudgetTokens,
+	setConversationMemoryToolDefaultLimit,
+	setConversationMemoryDailyBudgetUSD,
+	codebaseIndexConfig,
 	className,
 	...props
 }: ExperimentalSettingsProps) => {
@@ -80,6 +95,29 @@ export const ExperimentalSettings = ({
 									openRouterImageGenerationSelectedModel={openRouterImageGenerationSelectedModel}
 									setOpenRouterImageApiKey={setOpenRouterImageApiKey}
 									setImageGenerationSelectedModel={setImageGenerationSelectedModel}
+								/>
+							)
+						}
+						if (
+							config[0] === "CONVERSATION_MEMORY" &&
+							setConversationMemoryPromptBudgetTokens &&
+							setConversationMemoryToolDefaultLimit &&
+							setConversationMemoryDailyBudgetUSD
+						) {
+							return (
+								<ConversationMemorySettings
+									key={config[0]}
+									enabled={experiments[EXPERIMENT_IDS.CONVERSATION_MEMORY] ?? false}
+									onChange={(enabled) =>
+										setExperimentEnabled(EXPERIMENT_IDS.CONVERSATION_MEMORY, enabled)
+									}
+									promptBudgetTokens={conversationMemoryPromptBudgetTokens}
+									memoryToolDefaultLimit={conversationMemoryToolDefaultLimit}
+									dailyProcessingBudgetUSD={conversationMemoryDailyBudgetUSD}
+									setPromptBudgetTokens={setConversationMemoryPromptBudgetTokens}
+									setMemoryToolDefaultLimit={setConversationMemoryToolDefaultLimit}
+									setDailyProcessingBudgetUSD={setConversationMemoryDailyBudgetUSD}
+									codebaseIndexConfig={codebaseIndexConfig}
 								/>
 							)
 						}

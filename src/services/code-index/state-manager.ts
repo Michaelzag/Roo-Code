@@ -9,6 +9,9 @@ export class CodeIndexStateManager {
 	private _totalItems: number = 0
 	private _currentItemUnit: string = "blocks"
 	private _progressEmitter = new vscode.EventEmitter<ReturnType<typeof this.getCurrentStatus>>()
+	private _filesIndexedEmitter = new vscode.EventEmitter<Array<{ path: string; newHash?: string; status: string }>>()
+
+	public readonly onFilesIndexed = this._filesIndexedEmitter.event
 
 	// --- Public API ---
 
@@ -52,6 +55,18 @@ export class CodeIndexStateManager {
 			}
 
 			this._progressEmitter.fire(this.getCurrentStatus())
+		}
+	}
+
+	/**
+	 * Report a set of files that were processed by the indexer along with their status and new hash (if any).
+	 */
+	public reportFilesIndexed(list: Array<{ path: string; newHash?: string; status: string }>): void {
+		if (!list || list.length === 0) return
+		try {
+			this._filesIndexedEmitter.fire(list)
+		} catch (e) {
+			console.warn("[CodeIndexStateManager] Failed to emit files indexed event:", (e as any)?.message || e)
 		}
 	}
 

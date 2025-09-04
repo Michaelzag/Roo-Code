@@ -315,6 +315,26 @@
 		"configuration": {
 			"title": "%configuration.title%",
 			"properties": {
+				"roo.conversationMemory.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable conversation memory (experimental)."
+				},
+				"roo.conversationMemory.promptBudgetTokens": {
+					"type": "number",
+					"default": 400,
+					"description": "Token budget for Relevant Memory prompt injection."
+				},
+				"roo.conversationMemory.memoryToolDefaultLimit": {
+					"type": "number",
+					"default": 10,
+					"description": "Default number of memories to return per search query."
+				},
+				"roo.conversationMemory.dailyProcessingBudgetUSD": {
+					"type": "number",
+					"default": 1,
+					"description": "Maximum daily spending limit for memory processing operations (in USD)."
+				},
 				"roo-cline.allowedCommands": {
 					"type": "array",
 					"items": {
