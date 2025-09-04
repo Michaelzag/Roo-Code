@@ -87,11 +87,14 @@ export const MemorySearchItem: React.FC<MemorySearchItemProps> = ({ result, sear
 			onKeyDown={handleKeyDown}
 			tabIndex={0}
 			role="button"
-			aria-label={t("memory:item.selectLabel", "Select memory item")}>
+			aria-label={t("memory:item.selectLabel", { defaultValue: "Select memory item" })}>
 			{/* Header with title and timestamp */}
 			<div className="flex justify-between items-start mb-2">
 				<h4 className="text-sm font-medium text-vscode-foreground line-clamp-2 flex-1 mr-2">
-					{highlightMatch(result.title || t("memory:item.untitled", "Untitled"), searchQuery)}
+					{highlightMatch(
+						result.title || t("memory:item.untitled", { defaultValue: "Untitled" }),
+						searchQuery,
+					)}
 				</h4>
 				<span className="text-xs text-vscode-descriptionForeground whitespace-nowrap">
 					{formatDate(result.timestamp)}
@@ -110,12 +113,12 @@ export const MemorySearchItem: React.FC<MemorySearchItemProps> = ({ result, sear
 					<span
 						className={`inline-flex items-center gap-1 px-2 py-1 text-xs bg-vscode-button-background text-vscode-button-foreground rounded ${getEpisodeTypeColor(result.episodeType)}`}>
 						<span className={`${getEpisodeTypeIcon(result.episodeType)} text-xs`} />
-						{t(`memory:episodeType.${result.episodeType}`, result.episodeType)}
+						{t(`memory:episodeType.${result.episodeType}`, { defaultValue: result.episodeType })}
 					</span>
 
 					{/* Episode ID for reference */}
 					<span className="text-xs text-vscode-descriptionForeground opacity-70">
-						{t("memory:item.episode", "Episode")}: {result.episodeId.slice(0, 8)}...
+						{t("memory:item.episode", { defaultValue: "Episode" })}: {result.episodeId.slice(0, 8)}...
 					</span>
 				</div>
 

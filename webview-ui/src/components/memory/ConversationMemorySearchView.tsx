@@ -49,7 +49,7 @@ const ConversationMemorySearchView: React.FC<ConversationMemorySearchViewProps> 
 					<div className="flex items-center gap-2">
 						<span className="codicon codicon-search text-lg" />
 						<h3 className="text-vscode-foreground m-0 font-semibold">
-							{t("memory:search.title", "Search Memories")}
+							{t("memory:search.title", { defaultValue: "Search Memories" })}
 						</h3>
 						{hasQuery && resultsCount > 0 && (
 							<span className="text-xs text-vscode-descriptionForeground bg-vscode-badge-background text-vscode-badge-foreground px-2 py-1 rounded">
@@ -61,7 +61,7 @@ const ConversationMemorySearchView: React.FC<ConversationMemorySearchViewProps> 
 						<button
 							onClick={onDone}
 							className="text-xs text-vscode-descriptionForeground hover:text-vscode-foreground transition-colors"
-							aria-label={t("common:close", "Close")}>
+							aria-label={t("common:close", { defaultValue: "Close" })}>
 							<span className="codicon codicon-close text-sm" />
 						</button>
 					)}
@@ -69,10 +69,10 @@ const ConversationMemorySearchView: React.FC<ConversationMemorySearchViewProps> 
 
 				{/* Description */}
 				<p className="text-sm text-vscode-descriptionForeground">
-					{t(
-						"memory:search.description",
-						"Search through your conversation memories to find facts, insights, and past discussions.",
-					)}
+					{t("memory:search.description", {
+						defaultValue:
+							"Search through your conversation memories to find facts, insights, and past discussions.",
+					})}
 				</p>
 
 				{/* Search Input */}
@@ -91,11 +91,11 @@ const ConversationMemorySearchView: React.FC<ConversationMemorySearchViewProps> 
 					<div className="flex items-center justify-between text-xs text-vscode-descriptionForeground">
 						<div className="flex items-center gap-4">
 							<span>
-								{t("memory:search.query", "Query")}: &quot;{searchQuery}&quot;
+								{t("memory:search.query", { defaultValue: "Query" })}: &quot;{searchQuery}&quot;
 							</span>
 							{searchError && (
 								<span className="text-vscode-errorForeground">
-									{t("memory:search.failed", "Search failed")}
+									{t("memory:search.failed", { defaultValue: "Search failed" })}
 								</span>
 							)}
 						</div>
@@ -103,8 +103,8 @@ const ConversationMemorySearchView: React.FC<ConversationMemorySearchViewProps> 
 							<button
 								onClick={clearSearch}
 								className="text-vscode-descriptionForeground hover:text-vscode-foreground transition-colors"
-								aria-label={t("memory:search.clearSearch", "Clear search")}>
-								{t("memory:search.clear", "Clear")}
+								aria-label={t("memory:search.clearSearch", { defaultValue: "Clear search" })}>
+								{t("memory:search.clear", { defaultValue: "Clear" })}
 							</button>
 						)}
 					</div>

@@ -33,33 +33,33 @@ export const MemorySearchFilters: React.FC<MemorySearchFiltersProps> = ({ filter
 			<Select value={filters.timeRange} onValueChange={handleTimeRangeChange}>
 				<SelectTrigger className="flex-1 min-w-32">
 					<SelectValue>
-						{t("memory:filters.timeRange.prefix", "Time:")}{" "}
-						{t(`memory:filters.timeRange.${filters.timeRange}`, filters.timeRange)}
+						{t("memory:filters.timeRange.prefix", { defaultValue: "Time:" })}{" "}
+						{t(`memory:filters.timeRange.${filters.timeRange}`, { defaultValue: filters.timeRange })}
 					</SelectValue>
 				</SelectTrigger>
 				<SelectContent>
 					<SelectItem value="all">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-history" />
-							{t("memory:filters.timeRange.all", "All Time")}
+							{t("memory:filters.timeRange.all", { defaultValue: "All Time" })}
 						</div>
 					</SelectItem>
 					<SelectItem value="today">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-calendar" />
-							{t("memory:filters.timeRange.today", "Today")}
+							{t("memory:filters.timeRange.today", { defaultValue: "Today" })}
 						</div>
 					</SelectItem>
 					<SelectItem value="week">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-calendar" />
-							{t("memory:filters.timeRange.week", "This Week")}
+							{t("memory:filters.timeRange.week", { defaultValue: "This Week" })}
 						</div>
 					</SelectItem>
 					<SelectItem value="month">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-calendar" />
-							{t("memory:filters.timeRange.month", "This Month")}
+							{t("memory:filters.timeRange.month", { defaultValue: "This Month" })}
 						</div>
 					</SelectItem>
 				</SelectContent>
@@ -69,33 +69,33 @@ export const MemorySearchFilters: React.FC<MemorySearchFiltersProps> = ({ filter
 			<Select value={filters.episodeType} onValueChange={handleEpisodeTypeChange}>
 				<SelectTrigger className="flex-1 min-w-32">
 					<SelectValue>
-						{t("memory:filters.episodeType.prefix", "Type:")}{" "}
-						{t(`memory:filters.episodeType.${filters.episodeType}`, filters.episodeType)}
+						{t("memory:filters.episodeType.prefix", { defaultValue: "Type:" })}{" "}
+						{t(`memory:filters.episodeType.${filters.episodeType}`, { defaultValue: filters.episodeType })}
 					</SelectValue>
 				</SelectTrigger>
 				<SelectContent>
 					<SelectItem value="all">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-list-unordered" />
-							{t("memory:filters.episodeType.all", "All Episodes")}
+							{t("memory:filters.episodeType.all", { defaultValue: "All Episodes" })}
 						</div>
 					</SelectItem>
 					<SelectItem value="conversation">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-comment-discussion" />
-							{t("memory:filters.episodeType.conversation", "Conversations")}
+							{t("memory:filters.episodeType.conversation", { defaultValue: "Conversations" })}
 						</div>
 					</SelectItem>
 					<SelectItem value="fact">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-info" />
-							{t("memory:filters.episodeType.fact", "Facts")}
+							{t("memory:filters.episodeType.fact", { defaultValue: "Facts" })}
 						</div>
 					</SelectItem>
 					<SelectItem value="insight">
 						<div className="flex items-center gap-2">
 							<span className="codicon codicon-lightbulb" />
-							{t("memory:filters.episodeType.insight", "Insights")}
+							{t("memory:filters.episodeType.insight", { defaultValue: "Insights" })}
 						</div>
 					</SelectItem>
 				</SelectContent>
@@ -104,7 +104,7 @@ export const MemorySearchFilters: React.FC<MemorySearchFiltersProps> = ({ filter
 			{/* Relevance Threshold */}
 			<div className="flex-1 min-w-48">
 				<label className="text-sm text-vscode-foreground mb-1 block">
-					{t("memory:filters.relevanceThreshold", "Relevance")}
+					{t("memory:filters.relevanceThreshold", { defaultValue: "Relevance" })}
 					<span className="text-vscode-descriptionForeground ml-2">
 						{Math.round(filters.relevanceThreshold * 100)}%
 					</span>

@@ -3,7 +3,7 @@ export { default as ConversationMemorySearchView } from "./ConversationMemorySea
 
 // Individual components
 export { MemorySearchInput } from "./MemorySearchInput"
-export { default as MemorySearchFilters } from "./MemorySearchFilters"
+export { MemorySearchFilters } from "./MemorySearchFilters"
 export { MemorySearchResults } from "./MemorySearchResults"
 export { MemorySearchItem } from "./MemorySearchItem"
 
@@ -13,7 +13,7 @@ export { useMemorySearch } from "./useMemorySearch"
 // Types
 export type {
 	MemoryResult,
-	MemorySearchFilters,
+	MemorySearchFilters as MemorySearchFiltersType,
 	MemorySearchResponse,
 	MemorySearchItemProps,
 	MemorySearchInputProps,

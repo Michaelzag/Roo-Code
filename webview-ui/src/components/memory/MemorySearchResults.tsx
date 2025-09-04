@@ -20,7 +20,7 @@ export const MemorySearchResults: React.FC<MemorySearchResultsProps> = ({
 			<div className="flex flex-col items-center justify-center py-8 gap-3">
 				<VSCodeProgressRing className="size-6" />
 				<div className="flex items-center gap-2 text-sm text-vscode-descriptionForeground">
-					{t("memory:search.searching", "Searching memories...")}
+					{t("memory:search.searching", { defaultValue: "Searching memories..." })}
 				</div>
 			</div>
 		)
@@ -35,7 +35,7 @@ export const MemorySearchResults: React.FC<MemorySearchResultsProps> = ({
 					{searchError}
 				</div>
 				<p className="text-xs text-vscode-descriptionForeground text-center max-w-md">
-					{t("memory:search.errorHint", "Try adjusting your search query or filters")}
+					{t("memory:search.errorHint", { defaultValue: "Try adjusting your search query or filters" })}
 				</p>
 			</div>
 		)
@@ -49,13 +49,12 @@ export const MemorySearchResults: React.FC<MemorySearchResultsProps> = ({
 					<span className="codicon codicon-search text-2xl opacity-50" />
 				</div>
 				<p className="text-sm text-vscode-descriptionForeground text-center">
-					{t("memory:search.emptyQuery", "Enter a search query to find memories")}
+					{t("memory:search.emptyQuery", { defaultValue: "Enter a search query to find memories" })}
 				</p>
 				<p className="text-xs text-vscode-descriptionForeground opacity-70 text-center max-w-md">
-					{t(
-						"memory:search.searchHint",
-						"Search for conversations, facts, or insights from your previous interactions",
-					)}
+					{t("memory:search.searchHint", {
+						defaultValue: "Search for conversations, facts, or insights from your previous interactions",
+					})}
 				</p>
 			</div>
 		)
@@ -69,13 +68,12 @@ export const MemorySearchResults: React.FC<MemorySearchResultsProps> = ({
 					<span className="codicon codicon-search-stop text-2xl opacity-50" />
 				</div>
 				<p className="text-sm text-vscode-descriptionForeground text-center">
-					{t("memory:search.noResults", "No memories found")}
+					{t("memory:search.noResults", { defaultValue: "No memories found" })}
 				</p>
 				<p className="text-xs text-vscode-descriptionForeground opacity-70 text-center max-w-md">
-					{t(
-						"memory:search.noResultsHint",
-						"Try different keywords or adjust your filters to broaden the search",
-					)}
+					{t("memory:search.noResultsHint", {
+						defaultValue: "Try different keywords or adjust your filters to broaden the search",
+					})}
 				</p>
 			</div>
 		)
@@ -88,10 +86,13 @@ export const MemorySearchResults: React.FC<MemorySearchResultsProps> = ({
 			<div className="px-3 py-2 border-b border-vscode-panel-border bg-vscode-editor-background sticky top-0 z-10">
 				<div className="flex items-center justify-between">
 					<p className="text-sm text-vscode-foreground">
-						{t("memory:search.resultsCount", "{{count}} memories found", { count: searchResults.length })}
+						{t("memory:search.resultsCount", {
+							defaultValue: "{{count}} memories found",
+							count: searchResults.length,
+						})}
 					</p>
 					<p className="text-xs text-vscode-descriptionForeground">
-						{t("memory:search.sortedByRelevance", "Sorted by relevance")}
+						{t("memory:search.sortedByRelevance", { defaultValue: "Sorted by relevance" })}
 					</p>
 				</div>
 			</div>
