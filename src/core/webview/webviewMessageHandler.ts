@@ -2445,6 +2445,121 @@ export const webviewMessageHandler = async (
 			}
 			break
 		}
+		case "conversationMemorySearch": {
+			try {
+				const { query, memoryFilters, limit } = message
+				const memoryManager = provider.getCurrentWorkspaceConversationMemoryManager()
+
+				if (!memoryManager) {
+					provider.postMessageToWebview({
+						type: "conversationMemorySearchResults",
+						values: { success: false, error: "Conversation memory not available" },
+					})
+					break
+				}
+
+				if (!memoryManager.isInitialized) {
+					provider.postMessageToWebview({
+						type: "conversationMemorySearchResults",
+						values: { success: false, error: "Conversation memory not initialized" },
+					})
+					break
+				}
+
+				if (!query || typeof query !== "string" || !query.trim()) {
+					provider.postMessageToWebview({
+						type: "conversationMemorySearchResults",
+						values: { success: false, error: "Search query is required" },
+					})
+					break
+				}
+
+				const searchLimit = typeof limit === "number" && limit > 0 ? limit : 10
+				const searchFilters = memoryFilters || {}
+
+				try {
+					// Parse time range filter
+					let timeRange: { start?: Date; end?: Date } | undefined
+					if (searchFilters.timeRange && searchFilters.timeRange !== "all") {
+						const now = new Date()
+						const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+						switch (searchFilters.timeRange) {
+							case "today":
+								timeRange = { start: today }
+								break
+							case "week":
+								const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+								timeRange = { start: weekAgo }
+								break
+							case "month":
+								const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+								timeRange = { start: monthAgo }
+								break
+						}
+					}
+
+					// Search using the enhanced method
+					const searchResults = await memoryManager.searchMemoriesWithFilters({
+						query,
+						timeRange,
+						episodeType: searchFilters.episodeType,
+						relevanceThreshold: searchFilters.relevanceThreshold,
+						limit: searchLimit,
+					})
+
+					// Format results for UI
+					const formattedResults = searchResults.map((result: any) => ({
+						id: result.id || result.episodeId || `result_${Date.now()}_${Math.random()}`,
+						title: result.title || result.summary || "Memory",
+						content: result.content || result.text || "",
+						timestamp: result.timestamp || result.createdAt || new Date(),
+						episodeType: result.episodeType || result.type || "fact",
+						relevanceScore: result.relevanceScore || result.score || 0,
+						episodeId: result.episodeId || result.id,
+						metadata: result.metadata || {},
+					}))
+
+					provider.postMessageToWebview({
+						type: "conversationMemorySearchResults",
+						values: {
+							success: true,
+							results: formattedResults,
+							query,
+							totalResults: formattedResults.length,
+						},
+					})
+				} catch (searchError: any) {
+					const errorMessage = searchError?.message || String(searchError)
+					provider.log(`[conversationMemorySearch] Search failed: ${errorMessage}`)
+
+					// Provide specific error guidance based on error content
+					let userErrorMessage = errorMessage
+					const lowerErrorMessage = errorMessage.toLowerCase()
+
+					if (lowerErrorMessage.includes("embedder") || lowerErrorMessage.includes("embedding")) {
+						userErrorMessage = "Search failed - check embedder configuration"
+					} else if (lowerErrorMessage.includes("vector") || lowerErrorMessage.includes("qdrant")) {
+						userErrorMessage = "Search failed - vector store unavailable"
+					} else if (lowerErrorMessage.includes("timeout")) {
+						userErrorMessage = "Search timed out - try a simpler query"
+					}
+
+					provider.postMessageToWebview({
+						type: "conversationMemorySearchResults",
+						values: { success: false, error: userErrorMessage },
+					})
+				}
+			} catch (error: any) {
+				const errorMessage = error?.message || String(error)
+				provider.log(`[conversationMemorySearch] Handler error: ${errorMessage}`)
+				provider.postMessageToWebview({
+					type: "conversationMemorySearchResults",
+					values: { success: false, error: "Search failed due to unexpected error" },
+				})
+			}
+			break
+		}
 		case "focusPanelRequest": {
 			// Execute the focusPanel command to focus the WebView
 			await vscode.commands.executeCommand(getCommand("focusPanel"))

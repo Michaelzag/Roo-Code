@@ -220,6 +220,7 @@ export interface WebviewMessage {
 		| "conversationMemoryDailyBudgetUSD"
 		| "conversationMemoryStatus"
 		| "conversationMemoryOperation"
+		| "conversationMemorySearch"
 		| "memorySearch"
 		| "clearConversationMemory"
 	text?: string
@@ -247,6 +248,11 @@ export interface WebviewMessage {
 	query?: string
 	limit?: number
 	setting?: string
+	memoryFilters?: {
+		timeRange?: "all" | "today" | "week" | "month"
+		episodeType?: "all" | "conversation" | "fact" | "insight"
+		relevanceThreshold?: number
+	}
 	slug?: string
 	modeConfig?: ModeConfig
 	timeout?: number

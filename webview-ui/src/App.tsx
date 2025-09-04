@@ -22,11 +22,12 @@ import { HumanRelayDialog } from "./components/human-relay/HumanRelayDialog"
 import { DeleteMessageDialog, EditMessageDialog } from "./components/chat/MessageModificationConfirmationDialog"
 import ErrorBoundary from "./components/ErrorBoundary"
 import { CloudView } from "./components/cloud/CloudView"
+import { ConversationMemorySearchView } from "./components/memory"
 import { useAddNonInteractiveClickListener } from "./components/ui/hooks/useNonInteractiveClick"
 import { TooltipProvider } from "./components/ui/tooltip"
 import { STANDARD_TOOLTIP_DELAY } from "./components/ui/standard-tooltip"
 
-type Tab = "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud"
+type Tab = "settings" | "history" | "mcp" | "modes" | "chat" | "marketplace" | "cloud" | "memory"
 
 interface HumanRelayDialogState {
 	isOpen: boolean
@@ -257,6 +258,7 @@ const App = () => {
 					onDone={() => switchTab("chat")}
 				/>
 			)}
+			{tab === "memory" && <ConversationMemorySearchView onDone={() => switchTab("chat")} />}
 			<ChatView
 				ref={chatViewRef}
 				isHidden={tab !== "chat"}

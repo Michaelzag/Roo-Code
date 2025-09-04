@@ -125,6 +125,7 @@ export interface ExtensionMessage {
 		| "conversationMemoryStatus"
 		| "conversationMemoryOperation"
 		| "conversationMemoryCleared"
+		| "conversationMemorySearchResults"
 		| "memorySearchResults"
 		| "marketplaceInstallResult"
 		| "marketplaceRemoveResult"

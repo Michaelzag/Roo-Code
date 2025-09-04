@@ -393,6 +393,84 @@ export class ConversationMemoryManager {
 	}
 
 	/**
+	 * Enhanced search method with filtering support for the conversation memory search UI
+	 */
+	public async searchMemoriesWithFilters(options: {
+		query: string
+		timeRange?: { start?: Date; end?: Date }
+		episodeType?: "all" | "conversation" | "fact" | "insight"
+		relevanceThreshold?: number
+		limit?: number
+	}): Promise<any[]> {
+		if (!this.orchestrator) {
+			console.warn("[ConversationMemoryManager] Orchestrator not available for filtered search")
+			return []
+		}
+
+		const { query, timeRange, episodeType, relevanceThreshold, limit = 10 } = options
+
+		try {
+			// Start with episode search as it provides richer context
+			let results = await this.orchestrator.searchEpisodes(query, Math.max(limit * 2, 20))
+
+			// If no episodes found, fall back to fact search
+			if (!results || results.length === 0) {
+				const facts = await this.orchestrator.search(query)
+				results = facts.map((fact: any) => ({
+					...fact,
+					episodeType: "fact",
+					title: fact.summary || fact.content?.substring(0, 50) || "Memory",
+					relevanceScore: fact.score || 0.5,
+				}))
+			}
+
+			// Apply time range filter
+			if (timeRange && (timeRange.start || timeRange.end)) {
+				results = results.filter((result: any) => {
+					const timestamp = new Date(result.timestamp || result.createdAt || 0)
+					if (timeRange.start && timestamp < timeRange.start) return false
+					if (timeRange.end && timestamp > timeRange.end) return false
+					return true
+				})
+			}
+
+			// Apply episode type filter
+			if (episodeType && episodeType !== "all") {
+				results = results.filter((result: any) => {
+					const resultType = result.episodeType || result.type || "fact"
+					return resultType === episodeType
+				})
+			}
+
+			// Apply relevance threshold filter
+			if (typeof relevanceThreshold === "number" && relevanceThreshold > 0) {
+				results = results.filter((result: any) => {
+					const score = result.relevanceScore || result.score || 0
+					return score >= relevanceThreshold
+				})
+			}
+
+			// Apply limit and ensure results are properly formatted
+			return results.slice(0, limit).map((result: any) => ({
+				id: result.id || result.episodeId || `result_${Date.now()}_${Math.random()}`,
+				title: result.title || result.summary || result.content?.substring(0, 50) || "Memory",
+				content: result.content || result.text || result.summary || "",
+				timestamp: result.timestamp || result.createdAt || new Date(),
+				episodeType: result.episodeType || result.type || "fact",
+				relevanceScore: result.relevanceScore || result.score || 0,
+				episodeId: result.episodeId || result.id,
+				metadata: result.metadata || {},
+			}))
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			console.error("[ConversationMemoryManager.searchMemoriesWithFilters] Search failed:", errorMessage)
+
+			// Re-throw with context for the message handler to catch and handle appropriately
+			throw new Error(`Memory search failed: ${errorMessage}`)
+		}
+	}
+
+	/**
 	 * Collect a message for episode-based processing (replaces ingestTurn)
 	 */
 	public async collectMessage(message: import("./types").Message): Promise<void> {

@@ -100,6 +100,16 @@ vi.mock("@src/components/cloud/CloudView", () => ({
 	},
 }))
 
+vi.mock("@src/components/memory", () => ({
+	ConversationMemorySearchView: function ConversationMemorySearchView({ onDone }: { onDone: () => void }) {
+		return (
+			<div data-testid="memory-view" onClick={onDone}>
+				Memory Search View
+			</div>
+		)
+	},
+}))
+
 const mockUseExtensionState = vi.fn()
 
 // Mock the HumanRelayDialog component
@@ -337,5 +347,37 @@ describe("App", () => {
 		const chatView = screen.getByTestId("chat-view")
 		expect(chatView.getAttribute("data-hidden")).toBe("false")
 		expect(screen.queryByTestId("marketplace-view")).not.toBeInTheDocument()
+	})
+
+	it("switches to memory view when receiving memoryButtonClicked action", async () => {
+		render(<AppWithProviders />)
+
+		act(() => {
+			triggerMessage("memoryButtonClicked")
+		})
+
+		const memoryView = await screen.findByTestId("memory-view")
+		expect(memoryView).toBeInTheDocument()
+
+		const chatView = screen.getByTestId("chat-view")
+		expect(chatView.getAttribute("data-hidden")).toBe("true")
+	})
+
+	it("returns to chat view when clicking done in memory view", async () => {
+		render(<AppWithProviders />)
+
+		act(() => {
+			triggerMessage("memoryButtonClicked")
+		})
+
+		const memoryView = await screen.findByTestId("memory-view")
+
+		act(() => {
+			memoryView.click()
+		})
+
+		const chatView = screen.getByTestId("chat-view")
+		expect(chatView.getAttribute("data-hidden")).toBe("false")
+		expect(screen.queryByTestId("memory-view")).not.toBeInTheDocument()
 	})
 })
