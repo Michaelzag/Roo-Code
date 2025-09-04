@@ -321,8 +321,14 @@ export class ConversationMemoryManager {
 				episodeConfig,
 			)
 			console.log("[ConversationMemoryManager.initialize] Orchestrator created, starting...")
+			console.log("[ConversationMemoryManager.initialize] About to call orchestrator.start()")
+
 			await this.orchestrator.start()
+
 			console.log("[ConversationMemoryManager.initialize] Orchestrator started successfully")
+			console.log(
+				"[ConversationMemoryManager.initialize] Manager is now fully initialized and ready for operations",
+			)
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error)
 			console.error("[ConversationMemoryManager.initialize] Failed to initialize orchestrator:", error)
@@ -521,7 +527,25 @@ export class ConversationMemoryManager {
 		modelId?: string,
 		toolMeta?: { name: string; params: any; resultText?: string },
 	): Promise<void> {
+		console.log("[ConversationMemoryManager.ingestTurn] Called", {
+			workspacePath: this.workspacePath,
+			hasOrchestrator: !!this.orchestrator,
+			isInitialized: this.isInitialized,
+			isFeatureEnabled: this.isFeatureEnabled,
+			messagesCount: messages?.length || 0,
+			modelId: modelId,
+			toolName: toolMeta?.name,
+		})
+
 		if (!this.orchestrator) {
+			console.warn(
+				"[ConversationMemoryManager.ingestTurn] No orchestrator available - memory operations will be skipped",
+				{
+					workspacePath: this.workspacePath,
+					isInitialized: this.isInitialized,
+					isFeatureEnabled: this.isFeatureEnabled,
+				},
+			)
 			return
 		}
 

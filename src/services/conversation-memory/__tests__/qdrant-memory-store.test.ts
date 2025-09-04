@@ -285,14 +285,22 @@ describe("QdrantMemoryStore", () => {
 
 				await memoryStore.ensureCollection(customName, customDimension)
 
-				expect(ensureCollection).toHaveBeenCalledWith(mockQdrantClientInstance, customName, customDimension, {
-					distance: "Cosine",
-					onDisk: true,
-					hnsw: { m: 64, ef_construct: 512, on_disk: true },
-				})
+				// CRITICAL FIX: ensureCollection should always use workspace-derived collection name
+				// to prevent inconsistencies that cause "Not Found" errors
+				const expectedCollectionName = memoryStore.collectionName()
+				expect(ensureCollection).toHaveBeenCalledWith(
+					mockQdrantClientInstance,
+					expectedCollectionName,
+					customDimension,
+					{
+						distance: "Cosine",
+						onDisk: true,
+						hnsw: { m: 64, ef_construct: 512, on_disk: true },
+					},
+				)
 
-				// Should update internal collection name
-				expect(memoryStore.collectionName()).toBe(customName)
+				// Collection name should remain consistent (workspace-derived)
+				expect(memoryStore.collectionName()).toBe(expectedCollectionName)
 			})
 
 			it("should use existing collection when dimensions match", async () => {

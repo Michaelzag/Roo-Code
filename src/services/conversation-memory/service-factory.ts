@@ -49,9 +49,22 @@ export class ConversationMemoryServiceFactory {
 			// No cache.initialize() needed - embedder doesn't require it
 			const factory = new CodeIndexServiceFactory(this.codeIndexConfig, this.workspacePath, cache)
 
-			// Safe config access with fallbacks
-			const embedderProvider = config.embedderProvider || "openai"
+			// CRITICAL FIX: Remove hardcoded embedder fallback - fail explicitly if configuration missing
+			const embedderProvider = config.embedderProvider
 			const modelId = config.modelId || undefined
+
+			if (!embedderProvider) {
+				console.error("[ConversationMemoryServiceFactory] CRITICAL: Missing embedder provider configuration")
+				throw new Error(
+					"Embedder provider not configured - conversation memory requires explicit embedder configuration",
+				)
+			}
+
+			console.log("[ConversationMemoryServiceFactory] DEBUG: Using configured embedder", {
+				embedderProvider,
+				modelId,
+				removedOpenAIFallback: true,
+			})
 			const openAiKey = config.openAiOptions?.openAiNativeApiKey || undefined
 
 			console.log("[ConversationMemoryServiceFactory] Code index config:", {
@@ -71,12 +84,12 @@ export class ConversationMemoryServiceFactory {
 	}
 
 	public createVectorStore(): IVectorStore {
-		// Null safety check for config manager
+		// CRITICAL FIX: Remove null config fallback - fail explicitly if configuration missing
 		if (!this.codeIndexConfig) {
-			console.warn(
-				"[ConversationMemoryServiceFactory] CodeIndexConfigManager is null, using default Qdrant configuration",
+			console.error("[ConversationMemoryServiceFactory] CRITICAL: CodeIndexConfigManager is null")
+			throw new Error(
+				"Code index configuration manager not available - conversation memory requires proper configuration",
 			)
-			return new QdrantMemoryStore(this.workspacePath, "http://localhost:6333", 1536, undefined)
 		}
 
 		// Safe access to qdrant config with fallbacks
@@ -84,22 +97,42 @@ export class ConversationMemoryServiceFactory {
 		const { url, apiKey } = qdrantConfig
 		const dim = this.codeIndexConfig.currentModelDimension || 1536
 
-		// Use default URL if not provided
-		const qdrantUrl = url || "http://localhost:6333"
+		// CRITICAL FIX: Remove hardcoded localhost fallback - fail explicitly if URL not provided
+		if (!url) {
+			console.error("[ConversationMemoryServiceFactory] CRITICAL: Missing Qdrant URL configuration")
+			throw new Error("Qdrant URL not configured - conversation memory requires explicit vector store URL")
+		}
 
-		console.log("[ConversationMemoryServiceFactory] Creating vector store:", {
-			url: qdrantUrl,
+		console.log("[ConversationMemoryServiceFactory] DEBUG: Using configured vector store", {
+			url,
 			dimension: dim,
 			hasApiKey: !!apiKey,
+			removedLocalhostFallback: true,
 		})
 
-		return new QdrantMemoryStore(this.workspacePath, qdrantUrl, dim, apiKey)
+		return new QdrantMemoryStore(this.workspacePath, url, dim, apiKey)
 	}
 
 	public createLlmProviderFromEnv(): ILlmProvider | undefined {
 		const apiKey = process.env.OPENAI_API_KEY
-		const model = process.env.MEMORY_LLM_MODEL || "gpt-4o-mini"
-		if (!apiKey) return undefined
+		const model = process.env.MEMORY_LLM_MODEL
+
+		if (!apiKey) {
+			console.warn("[ConversationMemoryServiceFactory] Missing OPENAI_API_KEY - LLM provider unavailable")
+			return undefined
+		}
+
+		// CRITICAL FIX: Remove hardcoded model fallback - fail explicitly if model not specified
+		if (!model) {
+			console.error("[ConversationMemoryServiceFactory] CRITICAL: Missing MEMORY_LLM_MODEL environment variable")
+			throw new Error("LLM model not configured - set MEMORY_LLM_MODEL environment variable")
+		}
+
+		console.log("[ConversationMemoryServiceFactory] DEBUG: Using configured LLM model", {
+			model,
+			removedGPTFallback: true,
+		})
+
 		const client = new OpenAI({ apiKey })
 		return {
 			async generateJson(prompt: string, options?: { temperature?: number; max_tokens?: number }): Promise<any> {

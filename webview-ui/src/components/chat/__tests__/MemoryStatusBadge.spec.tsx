@@ -157,4 +157,39 @@ describe("MemoryStatusBadge", () => {
 			expect(dot.className).toMatch(/bg-green-500/)
 		})
 	})
+
+	it("shows brain icon during extract operations", async () => {
+		render(<MemoryStatusBadge />)
+		// Enable memory
+		act(() =>
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: {
+						type: "conversationMemoryStatus",
+						payload: { enabled: true, initialized: true, codeIndexConfigured: true },
+					},
+				}),
+			),
+		)
+
+		// Start extract operation
+		act(() =>
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: {
+						type: "conversationMemoryOperation",
+						payload: { operation: "extract", status: "started", message: "Extracting information" },
+					},
+				}),
+			),
+		)
+		await waitFor(() => {
+			const button = screen.getByRole("button")
+			// Look for Brain icon specifically by its class name
+			const brainIcon = button.querySelector("svg.lucide-brain")
+			expect(brainIcon).toBeInTheDocument()
+			// Verify it has the correct size classes
+			expect(brainIcon).toHaveClass("w-3", "h-3")
+		})
+	})
 })

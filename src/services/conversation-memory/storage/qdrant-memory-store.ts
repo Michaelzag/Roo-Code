@@ -16,6 +16,14 @@ export class QdrantMemoryStore implements IVectorStore {
 		this.client = QdrantClientSingleton.getInstance(url, apiKey)
 		const hash = createHash("sha256").update(workspacePath).digest("hex")
 		this._collectionName = `ws-${hash.substring(0, 16)}-memory`
+
+		console.log("[QdrantMemoryStore] Constructor - Created instance", {
+			workspacePath: this.workspacePath,
+			url: this.url,
+			dimension: this.dimension,
+			collectionName: this._collectionName,
+			hasApiKey: !!apiKey,
+		})
 	}
 
 	collectionName(): string {
@@ -23,19 +31,62 @@ export class QdrantMemoryStore implements IVectorStore {
 	}
 
 	async ensureCollection(name: string, dimension: number): Promise<void> {
-		this._collectionName = name
-		await ensureCollection(this.client, this._collectionName, dimension, {
-			distance: "Cosine",
-			onDisk: true,
-			hnsw: { m: 64, ef_construct: 512, on_disk: true },
+		console.log("[QdrantMemoryStore] ensureCollection called", {
+			providedName: name,
+			currentCollectionName: this._collectionName,
+			dimension: dimension,
+			expectedDimension: this.dimension,
 		})
+
+		// BUG FIX: Don't overwrite collection name - keep the workspace-specific name from constructor
+		const originalName = this._collectionName
+
+		try {
+			await ensureCollection(this.client, this._collectionName, dimension, {
+				distance: "Cosine",
+				onDisk: true,
+				hnsw: { m: 64, ef_construct: 512, on_disk: true },
+			})
+			console.log("[QdrantMemoryStore] ensureCollection completed successfully", {
+				collectionName: this._collectionName,
+				dimension: dimension,
+			})
+		} catch (error) {
+			console.error("[QdrantMemoryStore] ensureCollection failed", {
+				collectionName: this._collectionName,
+				dimension: dimension,
+				error: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined,
+			})
+			throw error
+		}
+	}
+
+	/**
+	 * CRITICAL FIX: Ensures collection exists before operations
+	 * This prevents "Not Found" errors by validating collection existence
+	 */
+	private async ensureCollectionExists(): Promise<void> {
+		try {
+			// Test if collection exists by getting its info
+			await this.client.getCollection(this._collectionName)
+		} catch (error) {
+			// Collection doesn't exist - create it
+			console.warn("[QdrantMemoryStore] Collection does not exist, creating:", this._collectionName)
+			await this.ensureCollection(this._collectionName, this.dimension)
+		}
 	}
 
 	async upsert(records: Array<VectorRecord<any>>): Promise<void> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
 		await this.client.upsert(this._collectionName, { points: records })
 	}
 
 	async insert(vectors: number[][], ids: string[], payloads: any[]): Promise<void> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
+
 		console.log("[QdrantMemoryStore] insert called with", vectors.length, "vectors")
 
 		// Filter out empty vectors
@@ -59,6 +110,8 @@ export class QdrantMemoryStore implements IVectorStore {
 	}
 
 	async update(id: string, vector: number[] | null, payload: any): Promise<void> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
 		await this.client.setPayload(this._collectionName, { points: [id], payload })
 		if (vector) {
 			await this.client.updateVectors(this._collectionName, { points: [{ id, vector }] as any })
@@ -66,10 +119,14 @@ export class QdrantMemoryStore implements IVectorStore {
 	}
 
 	async delete(id: string): Promise<void> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
 		await this.client.delete(this._collectionName, { points: [id] })
 	}
 
 	async get(id: string): Promise<VectorRecord<any> | undefined> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
 		const res = await this.client.retrieve(this._collectionName, {
 			ids: [id],
 			with_payload: true,
@@ -86,6 +143,9 @@ export class QdrantMemoryStore implements IVectorStore {
 		limit: number,
 		filters?: Record<string, any>,
 	): Promise<Array<VectorRecord<any>>> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
+
 		const must: Schemas["Filter"]["must"] = []
 		if (filters) {
 			for (const [key, value] of Object.entries(filters)) {
@@ -110,21 +170,25 @@ export class QdrantMemoryStore implements IVectorStore {
 			return []
 		}
 
-		// Query Qdrant with fixed structure
-
 		try {
 			const res = await this.client.query(this._collectionName, {
-				query: embedding, // ✅ Direct vector, no nesting
+				query: embedding,
 				limit,
 				filter,
-				with_payload: true, // ✅ This is correct
-				with_vector: false, // ✅ Move to root level
+				with_payload: true,
+				with_vector: false,
 			})
+
 			return res.points.map((p: any) => ({ id: p.id, vector: [], payload: p.payload, score: p.score }))
 		} catch (error) {
 			console.error("[QdrantMemoryStore] Query failed:", error)
 			console.error("[QdrantMemoryStore] Collection:", this._collectionName)
 			console.error("[QdrantMemoryStore] Filters:", JSON.stringify(filters))
+			console.error("[QdrantMemoryStore] Query details:", {
+				embeddingLength: embedding.length,
+				expectedDimension: this.dimension,
+				qdrantUrl: this.url,
+			})
 			// Return empty results instead of throwing to prevent crash
 			return []
 		}
@@ -135,6 +199,9 @@ export class QdrantMemoryStore implements IVectorStore {
 		filters?: Record<string, any>,
 		cursor?: any,
 	): Promise<{ records: Array<VectorRecord<any>>; nextCursor?: any }> {
+		// CRITICAL FIX: Ensure collection exists before any operation
+		await this.ensureCollectionExists()
+
 		const must: Schemas["Filter"]["must"] = []
 		if (filters) {
 			for (const [key, value] of Object.entries(filters)) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
-import { Brain, Search, Save, Zap } from "lucide-react"
+import { Brain, Search, Save } from "lucide-react"
 
 import { cn } from "@src/lib/utils"
 import { vscode } from "@src/utils/vscode"
@@ -118,7 +118,7 @@ export const MemoryStatusBadge: React.FC<MemoryStatusBadgeProps> = ({ className 
 			case "store":
 				return <Save className="w-3 h-3" />
 			case "extract":
-				return <Zap className="w-3 h-3" />
+				return <Brain className="w-3 h-3" />
 			case "sync":
 				return <Brain className="w-3 h-3" />
 			default:
@@ -163,30 +163,8 @@ export const MemoryStatusBadge: React.FC<MemoryStatusBadgeProps> = ({ className 
 					</PopoverTrigger>
 				</StandardTooltip>
 
-				{/* Operation History Toast-like notifications */}
-				{operationHistory.length > 0 && (
-					<div className="absolute bottom-full mb-2 right-0 space-y-1 pointer-events-none z-50">
-						{operationHistory.map((op, index) => (
-							<div
-								key={`${op.operation}-${index}`}
-								className={cn(
-									"flex items-center gap-2 px-2 py-1 rounded text-xs whitespace-nowrap",
-									"bg-vscode-editor-background border border-vscode-widget-border",
-									"animate-in slide-in-from-bottom-1 fade-in duration-200",
-									op.status === "failed" && "border-red-500/50",
-									op.status === "completed" && "border-green-500/50",
-								)}>
-								{getOperationIcon(op.operation)}
-								<span className="text-vscode-foreground/80">
-									{op.message || t(`chat:memoryOperation.${op.status}`)}
-								</span>
-								{op.resultCount !== undefined && (
-									<span className="text-vscode-descriptionForeground">({op.resultCount})</span>
-								)}
-							</div>
-						))}
-					</div>
-				)}
+				{/* Operation History Toast-like notifications removed to prevent intrusive popups */}
+				{/* Icon state changes are preserved through statusColorClass logic */}
 			</div>
 		</MemoryPopover>
 	)

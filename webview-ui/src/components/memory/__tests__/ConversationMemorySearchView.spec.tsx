@@ -6,7 +6,12 @@ import ConversationMemorySearchView from "../ConversationMemorySearchView"
 // Mock the translation context
 vi.mock("@src/i18n/TranslationContext", () => ({
 	useAppTranslation: () => ({
-		t: (key: string, defaultValue?: string) => defaultValue || key,
+		t: (key: string, options?: { defaultValue?: string; [key: string]: any }) => {
+			if (typeof options === "object" && options?.defaultValue) {
+				return options.defaultValue
+			}
+			return typeof options === "string" ? options : key
+		},
 	}),
 }))
 

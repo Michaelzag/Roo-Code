@@ -38,6 +38,7 @@ import { experiments, EXPERIMENT_IDS } from "../../shared/experiments"
 import { applyDiffToolLegacy } from "../tools/applyDiffTool"
 import { ConversationMemoryManager } from "../../services/conversation-memory/manager"
 import type { Message as MemoryMessage } from "../../services/conversation-memory/types"
+import { ConversationMemoryTurnProcessor } from "../../services/conversation-memory/turn-processor"
 
 /**
  * Processes and presents assistant message content to the user interface.
@@ -581,6 +582,21 @@ export async function presentAssistantMessage(cline: Task) {
 				// ignore
 			}
 
+			// NEW TURN-BASED PROCESSING: Track tool usage for proper memory processing
+			try {
+				const turnProcessor = ConversationMemoryTurnProcessor.getInstance()
+
+				// Initialize turn buffer on first tool execution (if not already done)
+				if (!cline.presentAssistantMessageLocked && cline.currentStreamingContentIndex === 0) {
+					turnProcessor.onAssistantStreamStart(cline)
+				}
+
+				// Track this tool execution with result for chunked processing and special tool handling
+				turnProcessor.onToolProcessing(cline, block.name, block.params, cline.memoryLastTool?.resultText || "")
+			} catch (error) {
+				console.error("[presentAssistantMessage] Turn processor tool tracking failed:", error)
+			}
+
 			break
 	}
 
@@ -612,96 +628,22 @@ export async function presentAssistantMessage(cline: Task) {
 			// Last block is complete and it is finished executing
 			cline.userMessageContentReady = true // Will allow `pWaitFor` to continue.
 
-			// Memory ingestion: trigger once per completed assistant turn (user + assistant pair)
+			// NEW TURN-BASED MEMORY PROCESSING: Only process once per complete conversation turn
+			// This replaces problematic per-tool-call processing with proper turn boundaries
 			try {
-				// Avoid duplicate ingestion within the same streaming turn
 				if (!(cline as any).currentStreamingDidMemoryIngest) {
-					// Get provider reference outside setTimeout to use in catch block
-					const provider = cline.providerRef.deref()
+					const turnProcessor = ConversationMemoryTurnProcessor.getInstance()
 
-					// Defer slightly to allow history to be finalized
-					setTimeout(async () => {
-						try {
-							// Double-check flag after delay
-							if ((cline as any).currentStreamingDidMemoryIngest) return
-							const context = provider?.context
-							const cwd = cline.cwd && cline.cwd.trim() !== "" ? cline.cwd : undefined
+					// Mark to prevent duplicate processing
+					;(cline as any).currentStreamingDidMemoryIngest = true
 
-							// Manager guards
-							if (!context) return
-							const manager = ConversationMemoryManager.getInstance(context, cwd)
-							if (!manager || !manager.isFeatureEnabled || !manager.isInitialized) return
-
-							// Build strict last user + assistant pair from recent history
-							const recent = buildRecentMemoryMessages(cline, 6)
-							let aiIndex = -1
-							for (let i = recent.length - 1; i >= 0; i--) {
-								if (recent[i].role === "assistant") {
-									aiIndex = i
-									break
-								}
-							}
-							if (aiIndex <= 0) return // need at least one prior message
-							let userIndex = -1
-							for (let i = aiIndex - 1; i >= 0; i--) {
-								if (recent[i].role === "user") {
-									userIndex = i
-									break
-								}
-							}
-							if (userIndex < 0) return
-
-							const pair = [recent[userIndex], recent[aiIndex]] as MemoryMessage[]
-							const modelId = cline.api?.getModel?.().id
-							const toolMeta = cline.memoryLastTool ? { ...cline.memoryLastTool } : undefined
-
-							// Notify UI: extraction started
-							try {
-								provider?.postMessageToWebview?.({
-									type: "conversationMemoryOperation",
-									payload: {
-										operation: "extract",
-										status: "started",
-										message: "Processing conversation turn",
-									} as any,
-								})
-							} catch {}
-
-							// Mark before awaiting to avoid racey double-calls
-							;(cline as any).currentStreamingDidMemoryIngest = true
-							await manager.ingestTurn(pair as any, cline.api as any, modelId, toolMeta as any)
-							// Notify UI: extraction completed
-							try {
-								provider?.postMessageToWebview?.({
-									type: "conversationMemoryOperation",
-									payload: {
-										operation: "extract",
-										status: "completed",
-										message: "Turn processed",
-									} as any,
-								})
-							} catch {}
-						} catch (err) {
-							// Non-fatal: log to console
-							console.error(
-								"[presentAssistantMessage] Memory ingestion error:",
-								(err as any)?.message || err,
-							)
-							try {
-								provider?.postMessageToWebview?.({
-									type: "conversationMemoryOperation",
-									payload: {
-										operation: "extract",
-										status: "failed",
-										message: (err as any)?.message || String(err),
-									} as any,
-								})
-							} catch {}
-						}
-					}, 0)
+					// Process complete turn with chunked processing and special tool handling
+					turnProcessor.onAssistantStreamComplete(cline).catch((error) => {
+						console.error("[presentAssistantMessage] Turn completion processing failed:", error)
+					})
 				}
-			} catch {
-				// best-effort
+			} catch (error) {
+				console.error("[presentAssistantMessage] Turn processor initialization failed:", error)
 			}
 		}
 

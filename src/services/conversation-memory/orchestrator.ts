@@ -20,6 +20,10 @@ export class ConversationMemoryOrchestrator {
 	private messageBuffer: Message[] = []
 	private processingInProgress = false
 
+	// CRITICAL FIX: Track initialization state to prevent race conditions
+	private isInitialized = false
+	private initializationPromise: Promise<void> | null = null
+
 	constructor(
 		private readonly workspacePath: string,
 		private readonly vectorStore: IVectorStore,
@@ -74,14 +78,69 @@ export class ConversationMemoryOrchestrator {
 	}
 
 	public async start(): Promise<void> {
+		// CRITICAL FIX: Prevent multiple initializations and provide singleton initialization
+		if (this.isInitialized) {
+			return
+		}
+
+		if (this.initializationPromise) {
+			return this.initializationPromise
+		}
+
+		this.initializationPromise = this.performInitialization()
+		await this.initializationPromise
+		this.isInitialized = true
+	}
+
+	/**
+	 * CRITICAL FIX: Ensures initialization completes before any operations
+	 */
+	private async ensureInitialized(): Promise<void> {
+		if (this.isInitialized) {
+			return
+		}
+
+		if (this.initializationPromise) {
+			await this.initializationPromise
+			return
+		}
+
+		// If not started, start initialization
+		await this.start()
+	}
+
+	private async performInitialization(): Promise<void> {
+		console.log("[ConversationMemoryOrchestrator] Starting orchestrator", {
+			workspacePath: this.workspacePath,
+			embedderDimension: this.embedder.dimension,
+		})
+
 		try {
 			// Ensure collection exists
 			const collectionName = this.collectionName()
+			console.log("[ConversationMemoryOrchestrator] About to ensure collection", {
+				collectionName: collectionName,
+				embedderDimension: this.embedder.dimension,
+			})
+
 			await this.vectorStore.ensureCollection(collectionName, this.embedder.dimension)
+
+			console.log("[ConversationMemoryOrchestrator] Collection ensured successfully", {
+				collectionName: collectionName,
+			})
+
 			this.stateManager.setSystemState("Indexed", "Conversation memory ready")
+
+			console.log("[ConversationMemoryOrchestrator] Start completed successfully")
 		} catch (error: any) {
 			const errorMessage = error?.message || String(error)
 			console.error("[ConversationMemoryOrchestrator] Failed to start:", errorMessage)
+			console.error("[ConversationMemoryOrchestrator] Error details:", {
+				workspacePath: this.workspacePath,
+				collectionName: this.collectionName(),
+				embedderDimension: this.embedder.dimension,
+				errorStack: error?.stack,
+			})
 
 			// Set error state for UI feedback
 			let userErrorMessage: string
@@ -110,6 +169,9 @@ export class ConversationMemoryOrchestrator {
 	 * Attempts to clear/delete the vector collection and removes on-disk artifacts.
 	 */
 	public async clearMemoryData(): Promise<void> {
+		// CRITICAL FIX: Ensure initialization completes before any operations
+		await this.ensureInitialized()
+
 		try {
 			// Prefer deleteCollection, fallback to clearCollection
 			if (typeof (this.vectorStore as any).deleteCollection === "function") {
@@ -136,10 +198,14 @@ export class ConversationMemoryOrchestrator {
 	}
 
 	public async search(query: string) {
+		// CRITICAL FIX: Ensure initialization completes before any operations
+		await this.ensureInitialized()
 		return this.searchSvc.search(query)
 	}
 
 	public async searchEpisodes(query: string, limit: number = 5) {
+		// CRITICAL FIX: Ensure initialization completes before any operations
+		await this.ensureInitialized()
 		return this.searchSvc.searchEpisodes(query, limit)
 	}
 
@@ -148,6 +214,9 @@ export class ConversationMemoryOrchestrator {
 	 * that replaces processTurn() with proper episode-based background processing.
 	 */
 	public async collectMessage(message: Message): Promise<void> {
+		// CRITICAL FIX: Ensure initialization completes before any operations
+		await this.ensureInitialized()
+
 		if (!this.episodeDetector) {
 			const error = new Error("Episode detector not available - conversation memory collection disabled")
 			console.warn("[ConversationMemoryOrchestrator]", error.message)
@@ -405,39 +474,76 @@ export class ConversationMemoryOrchestrator {
 	}
 
 	private async ingestFact(fact: CategorizedFactInput): Promise<void> {
-		// Ensure we have an embedding
-		const embedding = fact.embedding ?? (await this.embedder.embed(fact.content))
-		const withEmbedding: CategorizedFactInput = { ...fact, embedding }
-		const resolver = new ConflictResolver(this.vectorStore, this.workspacePath)
-		const actions = await resolver.resolve(withEmbedding)
+		console.log("[ConversationMemoryOrchestrator] ingestFact called", {
+			factContent: fact.content.substring(0, 100),
+			factCategory: fact.category,
+			hasEmbedding: !!fact.embedding,
+			workspacePath: this.workspacePath,
+		})
 
-		for (const a of actions) {
-			if (a.type === "IGNORE") continue
-			if (a.type === "DELETE_EXISTING") {
-				for (const id of a.target_ids ?? []) await this.vectorStore.delete(id)
-				continue
-			}
-			if (a.type === "UPDATE") {
-				const id = a.target_ids?.[0]
-				if (id) await this.vectorStore.update(id, null, { ...a.fact, updated_at: new Date().toISOString() })
-				continue
-			}
-			if (a.type === "SUPERSEDE") {
-				const newId = await this.insertNew(withEmbedding)
-				const now = new Date().toISOString()
-				for (const id of a.target_ids ?? []) {
-					const existing = await this.vectorStore.get(id)
-					await this.vectorStore.update(id, null, {
-						...(existing?.payload || {}),
-						superseded_by: newId,
-						superseded_at: now,
-					})
+		try {
+			// Ensure we have an embedding
+			const embedding = fact.embedding ?? (await this.embedder.embed(fact.content))
+			const withEmbedding: CategorizedFactInput = { ...fact, embedding }
+
+			console.log("[ConversationMemoryOrchestrator] About to resolve conflicts", {
+				embeddingLength: embedding?.length,
+				workspacePath: this.workspacePath,
+			})
+
+			const resolver = new ConflictResolver(this.vectorStore, this.workspacePath)
+			const actions = await resolver.resolve(withEmbedding)
+
+			console.log("[ConversationMemoryOrchestrator] Conflict resolution completed", {
+				actionCount: actions.length,
+				actionTypes: actions.map((a) => a.type),
+			})
+
+			for (const a of actions) {
+				console.log("[ConversationMemoryOrchestrator] Processing action", {
+					actionType: a.type,
+					targetIds: a.target_ids,
+				})
+
+				if (a.type === "IGNORE") continue
+				if (a.type === "DELETE_EXISTING") {
+					for (const id of a.target_ids ?? []) await this.vectorStore.delete(id)
+					continue
 				}
-				continue
+				if (a.type === "UPDATE") {
+					const id = a.target_ids?.[0]
+					if (id) await this.vectorStore.update(id, null, { ...a.fact, updated_at: new Date().toISOString() })
+					continue
+				}
+				if (a.type === "SUPERSEDE") {
+					const newId = await this.insertNew(withEmbedding)
+					const now = new Date().toISOString()
+					for (const id of a.target_ids ?? []) {
+						const existing = await this.vectorStore.get(id)
+						await this.vectorStore.update(id, null, {
+							...(existing?.payload || {}),
+							superseded_by: newId,
+							superseded_at: now,
+						})
+					}
+					continue
+				}
+				if (a.type === "ADD") {
+					console.log("[ConversationMemoryOrchestrator] Adding new fact via insertNew")
+					await this.insertNew(withEmbedding)
+				}
 			}
-			if (a.type === "ADD") {
-				await this.insertNew(withEmbedding)
-			}
+
+			console.log("[ConversationMemoryOrchestrator] ingestFact completed successfully")
+		} catch (error) {
+			console.error("[ConversationMemoryOrchestrator] ingestFact failed:", error)
+			console.error("[ConversationMemoryOrchestrator] ingestFact error details:", {
+				factContent: fact.content.substring(0, 100),
+				workspacePath: this.workspacePath,
+				errorMessage: error instanceof Error ? error.message : String(error),
+				errorStack: error instanceof Error ? error.stack : undefined,
+			})
+			throw error
 		}
 	}
 
@@ -478,6 +584,11 @@ export class ConversationMemoryOrchestrator {
 		let framework: string | undefined
 		let packageManager: string | undefined
 
+		console.log("[ConversationMemoryOrchestrator] DEBUG: Starting detectProjectContext", {
+			workspacePath: this.workspacePath,
+			workspaceName,
+		})
+
 		try {
 			const pkgPath = path.join(this.workspacePath, "package.json")
 			const raw = await fs.readFile(pkgPath, "utf-8").catch(() => undefined)
@@ -505,6 +616,10 @@ export class ConversationMemoryOrchestrator {
 				]
 				framework = frameworks.find((f) => deps[f])
 				packageManager = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0] : undefined
+				console.log("[ConversationMemoryOrchestrator] DEBUG: Processed package.json", {
+					hasPackageJson: true,
+					packageManagerFromJson: packageManager,
+				})
 			}
 
 			if (!packageManager) {
@@ -518,18 +633,74 @@ export class ConversationMemoryOrchestrator {
 		}
 
 		try {
-			if (
-				(await this.fileExists(path.join(this.workspacePath, "pyproject.toml"))) ||
-				(await this.fileExists(path.join(this.workspacePath, "requirements.txt")))
-			) {
+			const pyprojectPath = path.join(this.workspacePath, "pyproject.toml")
+			const requirementsPath = path.join(this.workspacePath, "requirements.txt")
+			const hasPyproject = await this.fileExists(pyprojectPath)
+			const hasRequirements = await this.fileExists(requirementsPath)
+
+			console.log("[ConversationMemoryOrchestrator] DEBUG: Checking Python files", {
+				hasPyproject,
+				hasRequirements,
+				currentPackageManager: packageManager,
+			})
+
+			if (hasPyproject || hasRequirements) {
 				language = "python"
-				const req = await fs
-					.readFile(path.join(this.workspacePath, "requirements.txt"), "utf-8")
-					.catch(() => "")
+
+				// Detect framework from requirements.txt
+				const req = await fs.readFile(requirementsPath, "utf-8").catch(() => "")
 				if (/fastapi/i.test(req)) framework = "fastapi"
 				else if (/django/i.test(req)) framework = "django"
 				else if (/flask/i.test(req)) framework = "flask"
-				packageManager = packageManager || "pip"
+
+				// CRITICAL FIX: Properly detect Python package managers instead of hardcoded pip fallback
+				if (!packageManager) {
+					console.log("[ConversationMemoryOrchestrator] DEBUG: Detecting Python package manager")
+
+					// Check for uv first (most specific)
+					if (hasPyproject) {
+						const pyprojectContent = await fs.readFile(pyprojectPath, "utf-8").catch(() => "")
+						if (pyprojectContent.includes("[tool.uv")) {
+							packageManager = "uv"
+							console.log(
+								"[ConversationMemoryOrchestrator] DEBUG: Detected uv from [tool.uv] in pyproject.toml",
+							)
+						} else if (pyprojectContent.includes("[tool.poetry")) {
+							packageManager = "poetry"
+							console.log(
+								"[ConversationMemoryOrchestrator] DEBUG: Detected poetry from [tool.poetry] in pyproject.toml",
+							)
+						} else if (pyprojectContent.includes("[tool.pdm")) {
+							packageManager = "pdm"
+							console.log(
+								"[ConversationMemoryOrchestrator] DEBUG: Detected pdm from [tool.pdm] in pyproject.toml",
+							)
+						}
+					}
+
+					// Check for lock files if not detected from pyproject.toml
+					if (!packageManager) {
+						if (await this.fileExists(path.join(this.workspacePath, "uv.lock"))) {
+							packageManager = "uv"
+							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected uv from uv.lock file")
+						} else if (await this.fileExists(path.join(this.workspacePath, "poetry.lock"))) {
+							packageManager = "poetry"
+							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected poetry from poetry.lock file")
+						} else if (await this.fileExists(path.join(this.workspacePath, "pdm.lock"))) {
+							packageManager = "pdm"
+							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected pdm from pdm.lock file")
+						} else if (await this.fileExists(path.join(this.workspacePath, "Pipfile"))) {
+							packageManager = "pipenv"
+							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected pipenv from Pipfile")
+						}
+					}
+
+					// CRITICAL: DO NOT default to pip - leave undefined if unknown
+					console.log("[ConversationMemoryOrchestrator] DEBUG: Final Python package manager detection", {
+						detected: packageManager,
+						removedHardcodedPipFallback: true,
+					})
+				}
 			} else if (await this.fileExists(path.join(this.workspacePath, "Cargo.toml"))) {
 				language = "rust"
 				packageManager = "cargo"
@@ -539,7 +710,9 @@ export class ConversationMemoryOrchestrator {
 			}
 		} catch {}
 
-		return { workspaceName, language, framework, packageManager }
+		const result = { workspaceName, language, framework, packageManager }
+		console.log("[ConversationMemoryOrchestrator] DEBUG: Final detectProjectContext result", result)
+		return result
 	}
 
 	private async fileExists(p: string): Promise<boolean> {

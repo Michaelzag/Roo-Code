@@ -10,7 +10,7 @@ export const useMemorySearch = () => {
 	const [filters, setFilters] = useState<MemorySearchFilters>({
 		timeRange: "all",
 		episodeType: "all",
-		relevanceThreshold: 0.7,
+		relevanceThreshold: 0.0,
 	})
 
 	// Debounced search - similar to HistoryView pattern
@@ -75,14 +75,9 @@ export const useMemorySearch = () => {
 		setSearchError(null)
 	}, [])
 
-	// Filter results by relevance threshold
-	const filteredResults = useMemo(() => {
-		return searchResults.filter((result) => result.relevanceScore >= filters.relevanceThreshold)
-	}, [searchResults, filters.relevanceThreshold])
-
-	// Filter by time range
-	const timeFilteredResults = useMemo(() => {
-		if (filters.timeRange === "all") return filteredResults
+	// Filter by time range (skip client-side relevance filtering - let backend handle it)
+	const timeFilteredResults = useMemo((): MemoryResult[] => {
+		if (filters.timeRange === "all") return searchResults
 
 		const now = new Date()
 		const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -99,17 +94,17 @@ export const useMemorySearch = () => {
 				cutoffDate = new Date(dayStart.getFullYear(), dayStart.getMonth() - 1, dayStart.getDate())
 				break
 			default:
-				return filteredResults
+				return searchResults
 		}
 
-		return filteredResults.filter((result) => new Date(result.timestamp) >= cutoffDate)
-	}, [filteredResults, filters.timeRange])
+		return searchResults.filter((result) => new Date(result.timestamp) >= cutoffDate)
+	}, [searchResults, filters.timeRange])
 
 	// Filter by episode type
 	const finalResults = useMemo(() => {
 		if (filters.episodeType === "all") return timeFilteredResults
 
-		return timeFilteredResults.filter((result) => result.episodeType === filters.episodeType)
+		return timeFilteredResults.filter((result: MemoryResult) => result.episodeType === filters.episodeType)
 	}, [timeFilteredResults, filters.episodeType])
 
 	// Sort results by relevance score (highest first)

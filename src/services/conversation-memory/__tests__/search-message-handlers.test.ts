@@ -137,9 +137,9 @@ describe("Conversation Memory Search Message Handlers", () => {
 			const message = {
 				type: "conversationMemorySearch" as const,
 				query: "test query",
-				filters: {
-					timeRange: "week",
-					episodeType: "all",
+				memoryFilters: {
+					timeRange: "week" as const,
+					episodeType: "all" as const,
 					relevanceThreshold: 0.5,
 				},
 				limit: 5,
@@ -173,7 +173,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			const message = {
 				type: "conversationMemorySearch" as const,
 				query: "test",
-				filters: { timeRange: "month" },
+				memoryFilters: { timeRange: "month" as const },
 				limit: 10,
 			}
 
@@ -201,7 +201,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			const message = {
 				type: "conversationMemorySearch" as const,
 				query: "test",
-				filters: { timeRange: "today" },
+				memoryFilters: { timeRange: "today" as const },
 				limit: 10,
 			}
 
