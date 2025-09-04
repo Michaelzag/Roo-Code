@@ -586,12 +586,21 @@ export async function presentAssistantMessage(cline: Task) {
 			try {
 				const turnProcessor = ConversationMemoryTurnProcessor.getInstance()
 
-				// Initialize turn buffer on first tool execution (if not already done)
-				if (!cline.presentAssistantMessageLocked && cline.currentStreamingContentIndex === 0) {
+				// CRITICAL FIX: Initialize turn processor on first tool in streaming session
+				// Use separate flag to track initialization since presentAssistantMessageLocked is always true here
+				if (cline.currentStreamingContentIndex === 0 && !(cline as any).currentStreamingDidMemoryInit) {
+					console.log("[MEMORY DEBUG] ✅ Initializing turn processor - first tool in streaming session")
+					;(cline as any).currentStreamingDidMemoryInit = true
 					turnProcessor.onAssistantStreamStart(cline)
 				}
 
 				// Track this tool execution with result for chunked processing and special tool handling
+				console.log(
+					"[MEMORY DEBUG] Processing tool:",
+					block.name,
+					"at index:",
+					cline.currentStreamingContentIndex,
+				)
 				turnProcessor.onToolProcessing(cline, block.name, block.params, cline.memoryLastTool?.resultText || "")
 			} catch (error) {
 				console.error("[presentAssistantMessage] Turn processor tool tracking failed:", error)
@@ -631,16 +640,29 @@ export async function presentAssistantMessage(cline: Task) {
 			// NEW TURN-BASED MEMORY PROCESSING: Only process once per complete conversation turn
 			// This replaces problematic per-tool-call processing with proper turn boundaries
 			try {
+				console.log("[MEMORY DEBUG] Turn completion check:", {
+					alreadyProcessed: !!(cline as any).currentStreamingDidMemoryIngest,
+					isLastBlock: cline.currentStreamingContentIndex === cline.assistantMessageContent.length - 1,
+					willProcess: !(cline as any).currentStreamingDidMemoryIngest,
+				})
+
 				if (!(cline as any).currentStreamingDidMemoryIngest) {
 					const turnProcessor = ConversationMemoryTurnProcessor.getInstance()
 
 					// Mark to prevent duplicate processing
 					;(cline as any).currentStreamingDidMemoryIngest = true
 
+					console.log("[MEMORY DEBUG] ✅ Calling onAssistantStreamComplete")
 					// Process complete turn with chunked processing and special tool handling
 					turnProcessor.onAssistantStreamComplete(cline).catch((error) => {
 						console.error("[presentAssistantMessage] Turn completion processing failed:", error)
 					})
+
+					// Reset initialization flag for next conversation turn
+					;(cline as any).currentStreamingDidMemoryInit = false
+					console.log("[MEMORY DEBUG] Reset initialization flag for next turn")
+				} else {
+					console.log("[MEMORY DEBUG] ❌ Skipping onAssistantStreamComplete - already processed")
 				}
 			} catch (error) {
 				console.error("[presentAssistantMessage] Turn processor initialization failed:", error)

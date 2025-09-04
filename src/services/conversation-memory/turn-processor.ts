@@ -314,15 +314,19 @@ export class ConversationMemoryTurnProcessor {
 
 		// TODO: Wait for codebase indexing to complete
 		// For now, add a small delay to allow file operations to settle
-		setTimeout(async () => {
-			try {
-				await manager.ingestTurn(messages as any, api as any, modelId, toolMeta as any)
-				this.notifyUI(provider, "extract", "completed", "File tool turn processed")
-			} catch (error) {
-				console.error("[ConversationMemoryTurnProcessor] File turn processing failed:", error)
-				this.notifyUI(provider, "extract", "failed", `File processing failed: ${error}`)
-			}
-		}, 1000) // 1 second delay for file operations
+		return new Promise((resolve, reject) => {
+			setTimeout(async () => {
+				try {
+					await manager.ingestTurn(messages as any, api as any, modelId, toolMeta as any)
+					this.notifyUI(provider, "extract", "completed", "File tool turn processed")
+					resolve()
+				} catch (error) {
+					console.error("[ConversationMemoryTurnProcessor] File turn processing failed:", error)
+					this.notifyUI(provider, "extract", "failed", `File processing failed: ${error}`)
+					reject(error)
+				}
+			}, 1000) // 1 second delay for file operations
+		})
 	}
 
 	/**
