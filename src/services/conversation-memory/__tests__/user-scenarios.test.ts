@@ -13,27 +13,61 @@
  * 5. Episode Detection - Real conversation patterns and boundaries
  */
 
-import type { Message, ConversationFact, Episode, ProjectContext } from "../types"
+import type { Message, ConversationFact, ProjectContext, ConversationEpisode } from "../types"
 import { ConversationMemoryServiceFactory } from "../service-factory"
 import { ConversationMemoryOrchestrator } from "../orchestrator"
+import { ConversationMemoryStateManager } from "../state-manager"
 import { EpisodeDetector } from "../episode/EpisodeDetector"
 import { ConversationFactExtractor } from "../processors/fact-extractor"
 import { QdrantMemoryStore } from "../storage/qdrant-memory-store"
-import { RooApiLlmAdapter } from "../adapters/roo-api-llm-adapter"
+// import { RooApiLlmAdapter } from "../adapters/roo-api-llm-adapter"
 import { ConversationMemoryConfigManager } from "../config-manager"
 
 /**
  * Mock implementations for testing user scenarios
  */
 class MockCodeIndexConfigManager {
+	// Required properties to match CodeIndexConfigManager interface
+	codebaseIndexEnabled = true
+	embedderProvider = "openai" as const
+	contextProxy = {
+		getGlobalState: vi.fn(() => ({})),
+		setGlobalState: vi.fn(),
+		getWorkspaceState: vi.fn(() => ({})),
+		setWorkspaceState: vi.fn(),
+	}
+
 	constructor(
 		private config: any = null,
 		private featureEnabled: boolean = true,
 		private featureConfigured: boolean = true,
 	) {}
 
+	// Public methods required by CodeIndexConfigManager interface
+	getContextProxy() {
+		return this.contextProxy
+	}
+
+	async loadConfiguration() {
+		return {
+			configSnapshot: {},
+			restartRequired: false,
+		}
+	}
+
+	isConfigured() {
+		return this.featureConfigured
+	}
+
 	getConfig() {
-		return this.config
+		return (
+			this.config || {
+				codebaseIndexEnabled: this.featureEnabled,
+				codebaseIndexQdrantUrl: "http://localhost:6333",
+				codebaseIndexEmbedderProvider: "openai",
+				codebaseIndexEmbedderModelId: "text-embedding-ada-002",
+			}
+		)
 	}
 
 	get isFeatureEnabled() {
@@ -44,8 +78,24 @@ class MockCodeIndexConfigManager {
 		return this.featureConfigured
 	}
 
+	get currentEmbedderProvider() {
+		return this.embedderProvider
+	}
+
+	get currentModelId() {
+		return "text-embedding-ada-002"
+	}
+
 	get currentModelDimension() {
 		return 1536
+	}
+
+	get currentSearchMinScore() {
+		return 0.7
+	}
+
+	get currentSearchMaxResults() {
+		return 10
 	}
 
 	get qdrantConfig() {
@@ -61,24 +111,58 @@ class MockEmbedder {
 		return new Array(1536).fill(0.1)
 	}
 
+	async embedBatch(texts: string[]): Promise<number[][]> {
+		return texts.map(() => new Array(1536).fill(0.1))
+	}
+
 	get dimension(): number {
 		return 1536
 	}
 }
 
+class MockEpisodeContextGenerator {
+	async describe(messages: Message[], projectContext?: ProjectContext): Promise<string> {
+		return "Test context description for episode"
+	}
+}
+
 class MockVectorStore {
 	private records: any[] = []
+	public collectionName = "test_collection"
 
 	async insert(record: any): Promise<void> {
 		this.records.push(record)
+	}
+
+	async upsert(records: any[]): Promise<void> {
+		records.forEach((record) => this.records.push(record))
+	}
+
+	async update(id: string, record: any): Promise<void> {
+		const index = this.records.findIndex((r) => r.id === id)
+		if (index >= 0) {
+			this.records[index] = { ...this.records[index], ...record }
+		}
 	}
 
 	async search(vector: number[], limit: number = 10): Promise<any[]> {
 		return this.records.slice(0, limit)
 	}
 
+	async filter(limit: number, filters?: any): Promise<any[]> {
+		return this.records.slice(0, limit)
+	}
+
+	async ensureCollection(): Promise<void> {
+		// Mock implementation - no-op
+	}
+
 	async clear(): Promise<void> {
 		this.records = []
+	}
+
+	async close(): Promise<void> {
+		// Mock implementation - no-op
 	}
 }
 
@@ -113,9 +197,12 @@ function createTestProjectContext(): ProjectContext {
 	}
 }
 
-function createTestEpisode(): Episode {
+function createTestEpisode(): ConversationEpisode {
 	return {
-		id: "test-episode-1",
+		episode_id: "test-episode-1",
+		messages: createTestMessages(3),
+		reference_time: new Date("2023-01-01T10:30:00"),
+		workspace_id: "test-workspace",
 		workspace_path: "/test/workspace",
 		context_description: "User testing conversation memory",
 		start_time: new Date("2023-01-01T10:00:00"),
@@ -132,7 +219,15 @@ function createTestFact(): ConversationFact {
 		conversation_context: "Discussion about project setup",
 		embedding: new Array(1536).fill(0.1),
 		episode_id: "test-episode-1",
-		created_at: new Date(),
+		ingestion_time: new Date(),
+		category: "infrastructure",
+		confidence: 0.9,
+		reference_time: new Date("2023-01-01T10:30:00"),
+		workspace_id: "test-workspace",
+		metadata: {
+			source: "conversation",
+			extractedAt: new Date(),
+		},
 	}
 }
 
@@ -145,7 +240,7 @@ describe("User Scenario: UI State Management", () => {
 	test("should maintain consistent UI state indicators during memory processing", async () => {
 		// Arrange: Set up a realistic memory processing scenario
 		const mockConfig = new MockCodeIndexConfigManager()
-		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", mockConfig)
+		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", mockConfig as any)
 		const mockEmbedder = new MockEmbedder()
 		const mockVectorStore = new MockVectorStore()
 		const mockLlm = new MockLlmProvider(false, { facts: [{ content: "Test fact" }] })
@@ -237,7 +332,7 @@ describe("User Scenario: Service Initialization", () => {
 	test("should gracefully degrade when code index configuration is invalid", async () => {
 		// Arrange: Invalid configuration
 		const invalidConfigManager = new MockCodeIndexConfigManager(null, false, false)
-		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", invalidConfigManager)
+		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", invalidConfigManager as any)
 
 		// Act: Attempt to create embedder
 		let thrownError: Error | null = null
@@ -263,7 +358,7 @@ describe("User Scenario: Service Initialization", () => {
 			get: () => undefined,
 		})
 
-		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", configWithoutQdrant)
+		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", configWithoutQdrant as any)
 
 		// Act: Create vector store
 		const vectorStore = serviceFactory.createVectorStore()
@@ -278,7 +373,10 @@ describe("User Scenario: Service Initialization", () => {
 		const originalEnv = process.env.OPENAI_API_KEY
 		delete process.env.OPENAI_API_KEY
 
-		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", new MockCodeIndexConfigManager())
+		const serviceFactory = new ConversationMemoryServiceFactory(
+			"/test/workspace",
+			new MockCodeIndexConfigManager() as any,
+		)
 
 		// Act: Attempt to create LLM provider
 		const llmProvider = serviceFactory.createLlmProviderFromEnv()
@@ -305,7 +403,7 @@ describe("User Scenario: Memory Operation Workflows", () => {
 			embedderProvider: "openai",
 			modelId: "text-embedding-3-small",
 		})
-		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", mockConfig)
+		const serviceFactory = new ConversationMemoryServiceFactory("/test/workspace", mockConfig as any)
 		const mockEmbedder = new MockEmbedder()
 		const mockVectorStore = new MockVectorStore()
 		const mockLlm = new MockLlmProvider(false, {
@@ -313,12 +411,14 @@ describe("User Scenario: Memory Operation Workflows", () => {
 		})
 
 		// Create orchestrator
+		const mockContextGenerator = new MockEpisodeContextGenerator()
+		const stateManager = new ConversationMemoryStateManager()
 		const orchestrator = new ConversationMemoryOrchestrator(
 			"/test/workspace",
-			mockVectorStore,
+			mockVectorStore as any,
 			mockEmbedder,
-			new EpisodeDetector(),
-			new ConversationFactExtractor(mockLlm),
+			stateManager,
+			mockLlm,
 		)
 
 		// Act: Store memory
@@ -492,7 +592,8 @@ describe("User Scenario: Episode Detection User Workflows", () => {
 			{ role: "assistant", content: "I'll help you configure TypeScript for your project..." },
 		]
 
-		const episodeDetector = new EpisodeDetector()
+		const mockContextGenerator = new MockEpisodeContextGenerator()
+		const episodeDetector = new EpisodeDetector(mockContextGenerator, undefined, undefined)
 
 		// Act: Detect episodes with time gap
 		const allMessages = [...earlyMessages, ...laterMessages]
@@ -519,7 +620,8 @@ describe("User Scenario: Episode Detection User Workflows", () => {
 			{ role: "assistant", content: "For visualizations, matplotlib and seaborn are excellent choices..." },
 		]
 
-		const episodeDetector = new EpisodeDetector()
+		const mockContextGenerator = new MockEpisodeContextGenerator()
+		const episodeDetector = new EpisodeDetector(mockContextGenerator, undefined, undefined)
 
 		// Act: Detect episodes across topic change
 		const allMessages = [...webDevMessages, ...dataAnalysisMessages]
@@ -543,7 +645,8 @@ describe("User Scenario: Episode Detection User Workflows", () => {
 			{ role: "assistant", content: "For database integration with Express, consider using..." },
 		]
 
-		const episodeDetector = new EpisodeDetector()
+		const mockContextGenerator = new MockEpisodeContextGenerator()
+		const episodeDetector = new EpisodeDetector(mockContextGenerator, undefined, undefined)
 
 		// Act: Process as separate episodes
 		const episode1 = await episodeDetector.detect(episode1Messages, "/test/workspace")
@@ -565,7 +668,8 @@ describe("User Scenario: Episode Detection User Workflows", () => {
 			{ role: "assistant", content: "Looking at the traceback..." },
 		]
 
-		const episodeDetector = new EpisodeDetector()
+		const mockContextGenerator = new MockEpisodeContextGenerator()
+		const episodeDetector = new EpisodeDetector(mockContextGenerator, undefined, undefined)
 
 		// Act: Detect episodes with context switching
 		const episodes = await episodeDetector.detect(mixedContextMessages, "/test/workspace")

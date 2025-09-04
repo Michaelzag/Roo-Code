@@ -86,7 +86,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockResolvedValue(sampleSearchResults)
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -135,7 +135,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockResolvedValue(sampleSearchResults)
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {
 					timeRange: "week",
@@ -171,7 +171,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockResolvedValue([])
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test",
 				filters: { timeRange: "month" },
 				limit: 10,
@@ -199,7 +199,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockResolvedValue([])
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test",
 				filters: { timeRange: "today" },
 				limit: 10,
@@ -226,7 +226,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			provider._mocks.getCurrentWorkspaceConversationMemoryManager.mockReturnValue(null)
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -250,7 +250,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager.isInitialized = false
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -271,7 +271,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 
 		it("should handle empty query", async () => {
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "",
 				filters: {},
 				limit: 10,
@@ -292,7 +292,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 
 		it("should handle whitespace-only query", async () => {
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "   \t\n   ",
 				filters: {},
 				limit: 10,
@@ -316,7 +316,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockRejectedValue(new Error("embedder not configured"))
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -343,7 +343,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockRejectedValue(new Error("qdrant connection failed"))
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -367,7 +367,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockRejectedValue(new Error("Search timeout after 30s"))
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -393,7 +393,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			})
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: 10,
@@ -420,7 +420,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockResolvedValue([])
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				// No limit provided
@@ -439,7 +439,7 @@ describe("Conversation Memory Search Message Handlers", () => {
 			memoryManager._mocks.searchMemoriesWithFilters.mockResolvedValue([])
 
 			const message = {
-				type: "conversationMemorySearch",
+				type: "conversationMemorySearch" as const,
 				query: "test query",
 				filters: {},
 				limit: -5,

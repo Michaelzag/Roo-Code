@@ -19,6 +19,9 @@ export interface ConversationEpisode {
 	message_count: number
 }
 
+// Alias for tests
+export type Episode = ConversationEpisode
+
 export interface ProjectContext {
 	workspaceName: string
 	language: string
@@ -49,6 +52,7 @@ export interface ConversationFact {
 	derived_pattern_created?: boolean
 	last_confirmed?: Date
 	source_model?: string
+	score?: number
 }
 
 export interface CategorizedFactInput {

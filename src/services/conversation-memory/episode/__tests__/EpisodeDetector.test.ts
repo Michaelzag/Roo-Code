@@ -752,7 +752,7 @@ describe("EpisodeDetector", () => {
 
 			await detector.detect(messages, testWorkspaceId, testProjectContext)
 
-			const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+			const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 			expect(promptCall).toContain("…") // Should be truncated
 		})
 
@@ -801,7 +801,7 @@ describe("EpisodeDetector", () => {
 
 			await maxMsgDetector.detect(messages, testWorkspaceId, testProjectContext)
 
-			const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+			const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 			expect(promptCall).toContain("episodes <= 10 messages")
 		})
 

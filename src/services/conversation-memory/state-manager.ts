@@ -127,6 +127,17 @@ export class ConversationMemoryStateManager {
 		}
 	}
 
+	// Configuration management for tests
+	private _configuration: any = {}
+
+	public setConfiguration(config: any): void {
+		this._configuration = { ...this._configuration, ...config }
+	}
+
+	public getConfiguration(): any {
+		return this._configuration
+	}
+
 	public dispose(): void {
 		this._onProgressUpdate?.dispose()
 	}

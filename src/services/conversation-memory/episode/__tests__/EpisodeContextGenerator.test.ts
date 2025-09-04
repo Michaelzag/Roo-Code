@@ -118,7 +118,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Dependencies: express, cors")
 				expect(promptCall).toContain("Key dirs: src, lib, tests")
 				expect(promptCall).toContain("Keywords: api, server")
@@ -138,7 +138,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Dependencies: mongoose, passport")
 				expect(promptCall).toContain("Memory tags: authentication, database, api-endpoint")
 			})
@@ -159,7 +159,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Dependencies: react, typescript, vitest")
 				expect(promptCall).toContain("Memory tags: component, hook, testing")
 				expect(promptCall).toContain("Key dirs: src, components, __tests__")
@@ -174,7 +174,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Project: test-workspace (typescript/react)")
 			})
 
@@ -188,7 +188,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, contextWithoutFramework)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Project: simple-project (javascript)")
 				expect(promptCall).not.toContain("/")
 			})
@@ -199,7 +199,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).not.toContain("Project:")
 				expect(mockLlmProvider.generateJson).toHaveBeenCalled()
 			})
@@ -213,7 +213,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				const truncatedContent = longContent.substring(0, 300)
 				expect(promptCall).toContain(truncatedContent)
 				expect(promptCall).not.toContain(longContent)
@@ -229,7 +229,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("user: How do I implement authentication?")
 				expect(promptCall).toContain("assistant: You can use JWT tokens")
 				expect(promptCall).toContain("system: System notification")
@@ -254,7 +254,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).not.toContain("Context:")
 				expect(mockLlmProvider.generateJson).toHaveBeenCalled()
 			})
@@ -281,7 +281,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Summarize this technical conversation episode in ≤10 words")
 				expect(promptCall).toContain('Return JSON: { "description": "your 10-word summary" }')
 				expect(promptCall).toContain("Conversation:")
@@ -293,7 +293,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain(
 					"Context: Dependencies: react, typescript; Memory tags: component, interface; Key dirs: src, components; Keywords: custom-hint",
 				)
@@ -368,7 +368,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				// Should limit to 5 deps, 5 tags, 5 dirs, 3 extra
 				const depMatches = promptCall.match(/Dependencies: ([^;]+)/)?.[1]?.split(", ") || []
 				const tagMatches = promptCall.match(/Memory tags: ([^;]+)/)?.[1]?.split(", ") || []
@@ -387,7 +387,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain(
 					"Context: Dependencies: react, typescript; Memory tags: component, interface; Key dirs: src, components; Keywords: custom-hint",
 				)
@@ -406,7 +406,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("Context: Dependencies: only-deps")
 				expect(promptCall).not.toContain("Memory tags:")
 				expect(promptCall).not.toContain("Key dirs:")
@@ -578,7 +578,7 @@ describe("EpisodeContextGenerator", () => {
 				expect(mockLlmProvider.generateJson).toHaveBeenCalled()
 
 				// Verify the prompt was constructed correctly with empty content
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				expect(promptCall).toContain("user: ")
 				expect(promptCall).toContain("assistant:    ")
 				expect(promptCall).toContain("user: Valid message")
@@ -642,7 +642,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(longMessages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 				// Each message should be truncated to 300 chars
 				const conversationSection = promptCall.split("Conversation:\n")[1]
 				const lines = conversationSection.split("\n").filter((line) => line.trim())
@@ -682,7 +682,7 @@ describe("EpisodeContextGenerator", () => {
 
 				await generator.describe(messages, testProjectContext)
 
-				const promptCall = mockLlmProvider.generateJson.mock.calls[0][0]
+				const promptCall = vi.mocked(mockLlmProvider.generateJson).mock.calls[0][0]
 
 				// Verify prompt structure
 				expect(promptCall).toContain("Summarize this technical conversation episode")

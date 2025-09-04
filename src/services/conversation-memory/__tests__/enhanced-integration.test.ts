@@ -489,7 +489,10 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			const messages = createTestMessages(6)
 
 			// Extract facts
-			const extractedFacts = await factExtractor.extractFacts(messages, { language: "typescript" })
+			const extractedFacts = await factExtractor.extractFacts(messages, {
+				workspaceName: "test-workspace",
+				language: "typescript",
+			})
 			expect(extractedFacts).toHaveLength(2)
 			expect(extractedFacts[0].content).toBe("Pipeline test fact 1")
 		})
@@ -631,7 +634,7 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 
 			// Results should be sorted by relevance (score)
 			for (let i = 1; i < results.length; i++) {
-				expect(results[i - 1].score).toBeGreaterThanOrEqual(results[i].score)
+				expect(results[i - 1].score!).toBeGreaterThanOrEqual(results[i].score!)
 			}
 		})
 
@@ -787,7 +790,13 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			const failingVectorStore = createMockVectorStore({ shouldFail: true })
 			const stateManager = new ConversationMemoryStateManager()
 
-			const searchService = new ConversationMemorySearchService(failingVectorStore, mockEmbedder, stateManager)
+			const temporalScorer = new TemporalScorer()
+			const searchService = new ConversationMemorySearchService(
+				mockEmbedder,
+				failingVectorStore,
+				temporalScorer,
+				"/test/workspace",
+			)
 
 			// Search should fail gracefully with vector store offline
 			await expect(searchService.search("test query", { limit: 5 })).rejects.toThrow("Vector store search failed")
@@ -825,7 +834,10 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			const projectContext = { language: "typescript", framework: "express" }
 
 			// Should generate context despite hints provider failure
-			const contextDescription = await contextGenerator.describe(messages, projectContext)
+			const contextDescription = await contextGenerator.describe(messages, {
+				...projectContext,
+				workspaceName: "test-workspace",
+			})
 
 			expect(contextDescription).toBeDefined()
 			expect(contextDescription).not.toBe("")
@@ -939,16 +951,20 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			const embedding = await workingEmbedder.embed(testFact.content)
 			await workingVectorStore.insert([embedding], ["test-1"], [testFact])
 
+			const temporalScorer1 = new TemporalScorer()
 			const workingSearchService = new ConversationMemorySearchService(
-				workingVectorStore,
 				workingEmbedder,
-				stateManager,
+				workingVectorStore,
+				temporalScorer1,
+				"/test/workspace",
 			)
 
+			const temporalScorer2 = new TemporalScorer()
 			const failingSearchService = new ConversationMemorySearchService(
-				workingVectorStore,
 				failingEmbedder,
-				stateManager,
+				workingVectorStore,
+				temporalScorer2,
+				"/test/workspace",
 			)
 
 			// Working search should succeed
@@ -1199,7 +1215,13 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 				await mockVectorStore.insert([embedding], [`large-fact-${i}`], [largeFacts[i]])
 			}
 
-			const searchService = new ConversationMemorySearchService(mockVectorStore, mockEmbedder, stateManager)
+			const temporalScorer = new TemporalScorer()
+			const searchService = new ConversationMemorySearchService(
+				mockEmbedder,
+				mockVectorStore,
+				temporalScorer,
+				"/test/workspace",
+			)
 
 			// Test multiple search queries with performance measurement
 			const searchQueries = ["architecture implementation", "frontend testing details", "backend infrastructure"]
@@ -1298,7 +1320,13 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			}
 
 			// Task 2: Concurrent search operations
-			const searchService = new ConversationMemorySearchService(mockVectorStore, mockEmbedder, stateManager)
+			const temporalScorer = new TemporalScorer()
+			const searchService = new ConversationMemorySearchService(
+				mockEmbedder,
+				mockVectorStore,
+				temporalScorer,
+				"/test/workspace",
+			)
 
 			for (let i = 0; i < 5; i++) {
 				stressTasks.push(searchService.search(`stress test query ${i}`, { limit: 10 }))
@@ -1450,7 +1478,7 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			// Process multiple extraction requests
 			const extractionTasks = Array.from({ length: 10 }, (_, i) => {
 				const messages = createTestMessages(2)
-				return factExtractor.extractFacts(messages, { language: "typescript" })
+				return factExtractor.extractFacts(messages, { workspaceName: "test-workspace", language: "typescript" })
 			})
 
 			const throughputStartTime = performance.now()
@@ -1582,7 +1610,13 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			// Create integrated components
 			const contextGenerator = new EpisodeContextGenerator(mockLlm)
 			const episodeDetector = new EpisodeDetector(contextGenerator, mockEmbedder, mockLlm)
-			const episodeSearchService = new EpisodeSearchService(mockVectorStore, mockEmbedder)
+			const temporalScorer = new TemporalScorer()
+			const episodeSearchService = new EpisodeSearchService(
+				mockEmbedder,
+				mockVectorStore,
+				temporalScorer,
+				"/test/workspace",
+			)
 
 			// Test episode detection with context generation
 			const messages = createTestMessages(8)
@@ -1593,7 +1627,7 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			expect(episodes[0].context_description).not.toBe("")
 
 			// Test search integration through episodeSearchService
-			const searchResults = await episodeSearchService.searchEpisodes("coordinated episode", 5)
+			const searchResults = await episodeSearchService.searchByEpisode("coordinated episode", 5)
 			expect(searchResults).toBeDefined()
 		})
 
@@ -1625,7 +1659,10 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			const messages = createTestMessages(6)
 
 			// Phase 1: Extract facts
-			const extractedFacts = await factExtractor.extractFacts(messages, { language: "typescript" })
+			const extractedFacts = await factExtractor.extractFacts(messages, {
+				workspaceName: "test-workspace",
+				language: "typescript",
+			})
 			expect(extractedFacts).toHaveLength(3)
 
 			// Phase 2: Store facts in memory (simulate storage)
@@ -1646,7 +1683,52 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 		})
 
 		it("should properly propagate configuration changes across all component layers", async () => {
-			const factory = new ConversationMemoryServiceFactory()
+			// Create mock dependencies
+			const mockContextProxy = {
+				getGlobalState: vi.fn(() => ({})),
+				setGlobalState: vi.fn(),
+				getWorkspaceState: vi.fn(() => ({})),
+				setWorkspaceState: vi.fn(),
+			}
+			const mockCodeIndexConfig = {
+				codebaseIndexEnabled: true,
+				embedderProvider: "openai" as const,
+				contextProxy: mockContextProxy,
+				getContextProxy: () => mockContextProxy,
+				loadConfiguration: vi.fn(async () => ({ configSnapshot: {}, restartRequired: false })),
+				isConfigured: vi.fn(() => true),
+				getConfig: vi.fn(() => ({ codebaseIndexEnabled: true })),
+				get isFeatureEnabled() {
+					return true
+				},
+				get isFeatureConfigured() {
+					return true
+				},
+				get currentEmbedderProvider() {
+					return "openai" as const
+				},
+				get qdrantConfig() {
+					return { url: "http://localhost:6333", apiKey: undefined }
+				},
+				get currentModelId() {
+					return "text-embedding-ada-002"
+				},
+				get currentModelDimension() {
+					return 1536
+				},
+				get currentSearchMinScore() {
+					return 0.7
+				},
+				get currentSearchMaxResults() {
+					return 10
+				},
+			}
+
+			const mockConfig = new (await import("../config-manager")).ConversationMemoryConfigManager(
+				mockContextProxy as any,
+				mockCodeIndexConfig as any,
+			)
+			const factory = new ConversationMemoryServiceFactory("/test/workspace", mockCodeIndexConfig as any)
 			const stateManager = new ConversationMemoryStateManager()
 
 			// Test configuration validation through state manager
@@ -1753,7 +1835,7 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 				mockVectorStore,
 				mockEmbedder,
 				stateManager,
-				episodeDetector,
+				mockLlm,
 			)
 
 			// Verify orchestrator properly integrates all dependencies
@@ -1787,9 +1869,10 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 			)
 
 			const failingSearchService = new ConversationMemorySearchService(
-				failingVectorStore,
 				workingEmbedder,
-				stateManager,
+				failingVectorStore,
+				new TemporalScorer(),
+				"/test/workspace",
 			)
 
 			const messages = createTestMessages(3)
@@ -1898,7 +1981,52 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 		})
 
 		it("should validate service factory coordination and component creation consistency", async () => {
-			const factory = new ConversationMemoryServiceFactory()
+			// Create mock dependencies
+			const mockContextProxy2 = {
+				getGlobalState: vi.fn(() => ({})),
+				setGlobalState: vi.fn(),
+				getWorkspaceState: vi.fn(() => ({})),
+				setWorkspaceState: vi.fn(),
+			}
+			const mockCodeIndexConfig2 = {
+				codebaseIndexEnabled: true,
+				embedderProvider: "openai" as const,
+				contextProxy: mockContextProxy2,
+				getContextProxy: () => mockContextProxy2,
+				loadConfiguration: vi.fn(async () => ({ configSnapshot: {}, restartRequired: false })),
+				isConfigured: vi.fn(() => true),
+				getConfig: vi.fn(() => ({ codebaseIndexEnabled: true })),
+				get isFeatureEnabled() {
+					return true
+				},
+				get isFeatureConfigured() {
+					return true
+				},
+				get currentEmbedderProvider() {
+					return "openai" as const
+				},
+				get qdrantConfig() {
+					return { url: "http://localhost:6333", apiKey: undefined }
+				},
+				get currentModelId() {
+					return "text-embedding-ada-002"
+				},
+				get currentModelDimension() {
+					return 1536
+				},
+				get currentSearchMinScore() {
+					return 0.7
+				},
+				get currentSearchMaxResults() {
+					return 10
+				},
+			}
+
+			const mockConfig3 = new (await import("../config-manager")).ConversationMemoryConfigManager(
+				mockContextProxy2 as any,
+				mockCodeIndexConfig2 as any,
+			)
+			const factory = new ConversationMemoryServiceFactory("/test/workspace", mockCodeIndexConfig2 as any)
 
 			// Test service creation coordination
 			const mockConfig1 = {
@@ -1908,7 +2036,7 @@ describe("Enhanced Conversation Memory Integration Tests", () => {
 				isEnabled: true,
 			}
 
-			const mockConfig2 = {
+			const mockConfig4 = {
 				qdrantUrl: "http://factory-test-2:6333",
 				embeddingModel: "factory-test-model-2",
 				embeddingDimension: 1536,

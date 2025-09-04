@@ -152,7 +152,7 @@ export class ConversationMemoryOrchestrator {
 			const error = new Error("Episode detector not available - conversation memory collection disabled")
 			console.warn("[ConversationMemoryOrchestrator]", error.message)
 			this.stateManager.setSystemState(
-				"Warning",
+				"Error",
 				"Memory collection unavailable - episode detection not configured",
 			)
 			return
@@ -228,7 +228,7 @@ export class ConversationMemoryOrchestrator {
 					)
 					// Continue with other episodes rather than failing completely
 					// But set a warning state so users know processing is degraded
-					this.stateManager.setSystemState("Warning", `Some memory processing failed - check logs`)
+					this.stateManager.setSystemState("Error", `Some memory processing failed - check logs`)
 				}
 			}
 
@@ -344,9 +344,9 @@ export class ConversationMemoryOrchestrator {
 
 				// For non-critical errors, set state and continue with other facts
 				if (errorMessage.includes("network") || errorMessage.includes("timeout")) {
-					this.stateManager.setSystemState("Warning", "Memory service intermittent - some facts may be lost")
+					this.stateManager.setSystemState("Error", "Memory service intermittent - some facts may be lost")
 				} else {
-					this.stateManager.setSystemState("Warning", "Memory processing degraded - check logs")
+					this.stateManager.setSystemState("Error", "Memory processing degraded - check logs")
 				}
 
 				console.warn(

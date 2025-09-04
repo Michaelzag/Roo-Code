@@ -156,7 +156,7 @@ export class ConversationMemoryManager {
 				console.warn(
 					"[ConversationMemoryManager.initialize] Wait for Code Index initialization to complete, then retry",
 				)
-				this.stateManager.setSystemState("Warning", "Waiting for Code Index initialization")
+				this.stateManager.setSystemState("Error", "Waiting for Code Index initialization")
 				return // Graceful degradation with clear warning state
 			}
 

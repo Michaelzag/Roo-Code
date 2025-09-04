@@ -428,15 +428,31 @@ reqwest = "0.11"`
 		describe("getHints", () => {
 			it("should return tags from infrastructure and pattern facts", async () => {
 				const mockInfraFacts = [
-					{ payload: { content: "Using React components with TypeScript interfaces" } },
-					{ payload: { content: "Docker containers for microservices deployment" } },
+					{
+						id: "infra-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "Using React components with TypeScript interfaces" },
+					},
+					{
+						id: "infra-2",
+						vector: [0.4, 0.5, 0.6],
+						payload: { content: "Docker containers for microservices deployment" },
+					},
 				]
 				const mockPatternFacts = [
-					{ payload: { content: "Observer pattern implementation with EventEmitter" } },
-					{ payload: { content: "Factory pattern for database connections" } },
+					{
+						id: "pattern-1",
+						vector: [0.7, 0.8, 0.9],
+						payload: { content: "Observer pattern implementation with EventEmitter" },
+					},
+					{
+						id: "pattern-2",
+						vector: [0.2, 0.3, 0.4],
+						payload: { content: "Factory pattern for database connections" },
+					},
 				]
 
-				vi.mocked(mockVectorStore.filter).mockImplementation((limit: number, filters: any) => {
+				vi.mocked(mockVectorStore.filter)!.mockImplementation((limit: number, filters: any) => {
 					if (filters.category === "infrastructure") {
 						return Promise.resolve(mockInfraFacts)
 					}
@@ -455,11 +471,13 @@ reqwest = "0.11"`
 
 			it("should handle vector store filter returning object with records", async () => {
 				const mockResponse = {
-					records: [{ payload: { content: "Using React components" } }],
+					records: [
+						{ id: "react-1", vector: [0.1, 0.2, 0.3], payload: { content: "Using React components" } },
+					],
 					nextCursor: "next-page",
 				}
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockResponse)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockResponse)
 
 				const result = await provider.getHints()
 
@@ -467,7 +485,7 @@ reqwest = "0.11"`
 			})
 
 			it("should handle empty vector store results", async () => {
-				vi.mocked(mockVectorStore.filter).mockResolvedValue([])
+				vi.mocked(mockVectorStore.filter)?.mockResolvedValue([])
 
 				const result = await provider.getHints()
 
@@ -475,7 +493,7 @@ reqwest = "0.11"`
 			})
 
 			it("should handle vector store errors gracefully", async () => {
-				vi.mocked(mockVectorStore.filter).mockRejectedValue(new Error("Vector store connection failed"))
+				vi.mocked(mockVectorStore.filter)?.mockRejectedValue(new Error("Vector store connection failed"))
 
 				const result = await provider.getHints()
 
@@ -484,10 +502,14 @@ reqwest = "0.11"`
 
 			it("should filter technical terms by length", async () => {
 				const mockFacts = [
-					{ payload: { content: "Using A short XY VeryLongTechnicalTermThatShouldBeFiltered terms" } },
+					{
+						id: "fact-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "Using A short XY VeryLongTechnicalTermThatShouldBeFiltered terms" },
+					},
 				]
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -500,9 +522,9 @@ reqwest = "0.11"`
 
 			it("should limit tags to 15 items", async () => {
 				const longContent = Array.from({ length: 20 }, (_, i) => `Term${i}`).join(" ")
-				const mockFacts = [{ payload: { content: longContent } }]
+				const mockFacts = [{ id: "long-1", vector: [0.1, 0.2, 0.3], payload: { content: longContent } }]
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -510,7 +532,7 @@ reqwest = "0.11"`
 			})
 
 			it("should pass workspace_path filter to vector store", async () => {
-				vi.mocked(mockVectorStore.filter).mockResolvedValue([])
+				vi.mocked(mockVectorStore.filter)?.mockResolvedValue([])
 
 				await provider.getHints()
 
@@ -536,13 +558,13 @@ reqwest = "0.11"`
 
 			it("should handle facts with missing payload", async () => {
 				const mockFacts = [
-					{ payload: null },
-					{ payload: undefined },
-					{ payload: { content: "ValidContent" } },
-					{}, // Missing payload entirely
+					{ id: "null-1", vector: [0.1, 0.2, 0.3], payload: null },
+					{ id: "undef-1", vector: [0.1, 0.2, 0.3], payload: undefined },
+					{ id: "valid-1", vector: [0.1, 0.2, 0.3], payload: { content: "ValidContent" } },
+					{ id: "missing-1", vector: [0.1, 0.2, 0.3], payload: {} }, // Empty payload instead of missing
 				]
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -555,7 +577,7 @@ reqwest = "0.11"`
 					language: "typescript",
 				}
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue([])
+				vi.mocked(mockVectorStore.filter)?.mockResolvedValue([])
 
 				const result = await provider.getHints(projectContext)
 
@@ -566,10 +588,14 @@ reqwest = "0.11"`
 		describe("Technical term extraction", () => {
 			it("should extract capitalized technical terms", async () => {
 				const mockFacts = [
-					{ payload: { content: "React components use TypeScript interfaces and Redux state" } },
+					{
+						id: "react-ts-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "React components use TypeScript interfaces and Redux state" },
+					},
 				]
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -578,10 +604,14 @@ reqwest = "0.11"`
 
 			it("should handle mixed case and underscores", async () => {
 				const mockFacts = [
-					{ payload: { content: "API_Gateway connects to Database_Connection via HTTP_Client" } },
+					{
+						id: "api-db-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "API_Gateway connects to Database_Connection via HTTP_Client" },
+					},
 				]
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -591,9 +621,15 @@ reqwest = "0.11"`
 			})
 
 			it("should handle hyphenated technical terms", async () => {
-				const mockFacts = [{ payload: { content: "Using Auto-Scaling and Load-Balancer configurations" } }]
+				const mockFacts = [
+					{
+						id: "auto-scale-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "Using Auto-Scaling and Load-Balancer configurations" },
+					},
+				]
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -686,8 +722,14 @@ reqwest = "0.11"`
 				vi.mocked(fs.readdir).mockResolvedValue(mockDirEntries as any)
 
 				// Mock memory results
-				const mockFacts = [{ payload: { content: "Using TypeScript interfaces" } }]
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				const mockFacts = [
+					{
+						id: "ts-interface-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "Using TypeScript interfaces" },
+					},
+				]
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -713,7 +755,7 @@ reqwest = "0.11"`
 				vi.mocked(fs.readdir).mockResolvedValue([])
 
 				// Mock memory failure
-				vi.mocked(mockVectorStore.filter).mockRejectedValue(new Error("Vector store failed"))
+				vi.mocked(mockVectorStore.filter)?.mockRejectedValue(new Error("Vector store failed"))
 
 				const result = await provider.getHints()
 
@@ -728,7 +770,7 @@ reqwest = "0.11"`
 				const provider = new AutoHintsProvider(fileSystemProvider, memoryProvider)
 
 				// Mock empty memory results
-				vi.mocked(mockVectorStore.filter).mockResolvedValue([])
+				vi.mocked(mockVectorStore.filter)?.mockResolvedValue([])
 
 				const result = await provider.getHints()
 
@@ -747,7 +789,7 @@ reqwest = "0.11"`
 					language: "typescript",
 				}
 
-				vi.mocked(mockVectorStore.filter).mockResolvedValue([])
+				vi.mocked(mockVectorStore.filter)?.mockResolvedValue([])
 
 				const result = await provider.getHints(projectContext)
 
@@ -764,8 +806,14 @@ reqwest = "0.11"`
 				const provider = new AutoHintsProvider(fileSystemProvider, memoryProvider)
 
 				// Mock memory results with tags
-				const mockFacts = [{ payload: { content: "React TypeScript patterns" } }]
-				vi.mocked(mockVectorStore.filter).mockResolvedValue(mockFacts)
+				const mockFacts = [
+					{
+						id: "react-patterns-1",
+						vector: [0.1, 0.2, 0.3],
+						payload: { content: "React TypeScript patterns" },
+					},
+				]
+				vi.mocked(mockVectorStore.filter)!.mockResolvedValue(mockFacts)
 
 				const result = await provider.getHints()
 
@@ -785,7 +833,7 @@ reqwest = "0.11"`
 				})
 
 				// Mock memory failure
-				vi.mocked(mockVectorStore.filter).mockRejectedValue(new Error("Memory error"))
+				vi.mocked(mockVectorStore.filter)?.mockRejectedValue(new Error("Memory error"))
 
 				const result = await provider.getHints()
 
@@ -846,10 +894,18 @@ reqwest = "0.11"`
 
 			// Mock realistic memory data
 			const realFacts = [
-				{ payload: { content: "Express server with CORS middleware configuration" } },
-				{ payload: { content: "TypeScript interfaces for API responses" } },
+				{
+					id: "express-1",
+					vector: [0.1, 0.2, 0.3],
+					payload: { content: "Express server with CORS middleware configuration" },
+				},
+				{
+					id: "ts-api-1",
+					vector: [0.4, 0.5, 0.6],
+					payload: { content: "TypeScript interfaces for API responses" },
+				},
 			]
-			vi.mocked(mockVectorStore.filter).mockResolvedValue(realFacts)
+			vi.mocked(mockVectorStore.filter)!.mockResolvedValue(realFacts)
 
 			const result = await autoProvider.getHints()
 

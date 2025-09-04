@@ -264,7 +264,14 @@ export interface WebviewMessage {
 	terminalOperation?: "continue" | "abort"
 	messageTs?: number
 	historyPreviewCollapsed?: boolean
-	filters?: { type?: string; search?: string; tags?: string[] }
+	filters?: {
+		type?: string
+		search?: string
+		tags?: string[]
+		timeRange?: string
+		episodeType?: string
+		relevanceThreshold?: number
+	}
 	settings?: any
 	url?: string // For openExternal
 	mpItem?: MarketplaceItem
