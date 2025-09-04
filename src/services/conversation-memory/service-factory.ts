@@ -10,12 +10,26 @@ import OpenAI from "openai"
 export class ConversationMemoryServiceFactory {
 	constructor(
 		private readonly workspacePath: string,
-		private readonly codeIndexConfig: CodeIndexConfigManager,
+		private readonly codeIndexConfig: CodeIndexConfigManager | null,
 	) {}
 
 	public createEmbedder(): IEmbedder {
 		try {
 			console.log("[ConversationMemoryServiceFactory] Creating embedder")
+
+			// Null safety check for config manager
+			if (!this.codeIndexConfig) {
+				throw new Error(
+					"CodeIndexConfigManager is not available. Cannot create embedder without configuration.",
+				)
+			}
+
+			// Get config with null safety
+			const config = this.codeIndexConfig.getConfig()
+			if (!config) {
+				throw new Error("Code index configuration is not available. Please configure the code index settings.")
+			}
+
 			const fakeContext = {
 				globalStorageUri: vscode.Uri.file(require("os").tmpdir()),
 				subscriptions: [],
@@ -34,11 +48,18 @@ export class ConversationMemoryServiceFactory {
 			const cache = new CacheManager(fakeContext, this.workspacePath)
 			// No cache.initialize() needed - embedder doesn't require it
 			const factory = new CodeIndexServiceFactory(this.codeIndexConfig, this.workspacePath, cache)
+
+			// Safe config access with fallbacks
+			const embedderProvider = config.embedderProvider || "openai"
+			const modelId = config.modelId || undefined
+			const openAiKey = config.openAiOptions?.openAiNativeApiKey || undefined
+
 			console.log("[ConversationMemoryServiceFactory] Code index config:", {
-				embedderProvider: this.codeIndexConfig.getConfig().embedderProvider,
-				modelId: this.codeIndexConfig.getConfig().modelId,
-				hasApiKey: !!(this.codeIndexConfig.getConfig() as any).openAiOptions?.openAiNativeApiKey,
+				embedderProvider,
+				modelId,
+				hasApiKey: !!openAiKey,
 			})
+
 			const rooEmbedder = factory.createEmbedder()
 			const dim = this.codeIndexConfig.currentModelDimension || 1536
 			console.log("[ConversationMemoryServiceFactory] Embedder created with dimension:", dim)
@@ -50,9 +71,29 @@ export class ConversationMemoryServiceFactory {
 	}
 
 	public createVectorStore(): IVectorStore {
-		const { url, apiKey } = this.codeIndexConfig.qdrantConfig
+		// Null safety check for config manager
+		if (!this.codeIndexConfig) {
+			console.warn(
+				"[ConversationMemoryServiceFactory] CodeIndexConfigManager is null, using default Qdrant configuration",
+			)
+			return new QdrantMemoryStore(this.workspacePath, "http://localhost:6333", 1536, undefined)
+		}
+
+		// Safe access to qdrant config with fallbacks
+		const qdrantConfig = this.codeIndexConfig.qdrantConfig || {}
+		const { url, apiKey } = qdrantConfig
 		const dim = this.codeIndexConfig.currentModelDimension || 1536
-		return new QdrantMemoryStore(this.workspacePath, url || "http://localhost:6333", dim, apiKey)
+
+		// Use default URL if not provided
+		const qdrantUrl = url || "http://localhost:6333"
+
+		console.log("[ConversationMemoryServiceFactory] Creating vector store:", {
+			url: qdrantUrl,
+			dimension: dim,
+			hasApiKey: !!apiKey,
+		})
+
+		return new QdrantMemoryStore(this.workspacePath, qdrantUrl, dim, apiKey)
 	}
 
 	public createLlmProviderFromEnv(): ILlmProvider | undefined {

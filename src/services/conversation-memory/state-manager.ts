@@ -15,20 +15,83 @@ export interface ProgressUpdate {
 	progress: { processedEpisodes: number; totalEpisodes: number }
 }
 
+// Fallback EventEmitter for non-VSCode environments
+class FallbackEventEmitter<T> {
+	private _listeners: Array<(data: T) => void> = []
+
+	get event() {
+		return (listener: (data: T) => void) => {
+			this._listeners.push(listener)
+			return {
+				dispose: () => {
+					const index = this._listeners.indexOf(listener)
+					if (index >= 0) {
+						this._listeners.splice(index, 1)
+					}
+				},
+			}
+		}
+	}
+
+	fire(data: T): void {
+		this._listeners.forEach((listener) => {
+			try {
+				listener(data)
+			} catch (error) {
+				console.warn("EventEmitter listener error:", error)
+			}
+		})
+	}
+
+	dispose(): void {
+		this._listeners = []
+	}
+}
+
+// Type-safe interface for EventEmitter-like objects
+interface EventEmitterLike<T> {
+	event: vscode.Event<T>
+	fire(data: T): void
+	dispose(): void
+}
+
 export class ConversationMemoryStateManager {
 	private _systemState: MemorySystemState = "Standby"
 	private _systemMessage = ""
 	private _progressData = { processedEpisodes: 0, totalEpisodes: 0 }
 
-	// Use VSCode EventEmitter if available, otherwise no-op for tests
-	private _onProgressUpdate?: vscode.EventEmitter<ProgressUpdate>
-	public readonly onProgressUpdate?: vscode.Event<ProgressUpdate>
+	private _onProgressUpdate: EventEmitterLike<ProgressUpdate>
+	public readonly onProgressUpdate: vscode.Event<ProgressUpdate>
 
 	constructor() {
-		// Only create EventEmitter if vscode is available
-		if (typeof vscode !== "undefined" && vscode.EventEmitter) {
+		// Robust environment detection with fallback
+		const hasVSCodeEventEmitter = this.isVSCodeEnvironment()
+
+		if (hasVSCodeEventEmitter) {
 			this._onProgressUpdate = new vscode.EventEmitter<ProgressUpdate>()
-			this.onProgressUpdate = this._onProgressUpdate.event
+		} else {
+			this._onProgressUpdate = new FallbackEventEmitter<ProgressUpdate>()
+		}
+
+		this.onProgressUpdate = this._onProgressUpdate.event
+	}
+
+	/**
+	 * Determines if we're in a VSCode environment with proper EventEmitter support
+	 */
+	private isVSCodeEnvironment(): boolean {
+		try {
+			// More robust check: try to actually instantiate EventEmitter
+			if (typeof vscode !== "undefined" && vscode !== null && typeof vscode.EventEmitter === "function") {
+				// Test if EventEmitter can actually be constructed
+				const testEmitter = new vscode.EventEmitter<string>()
+				testEmitter.dispose()
+				return true
+			}
+			return false
+		} catch {
+			// If EventEmitter constructor fails or any other error, use fallback
+			return false
 		}
 	}
 

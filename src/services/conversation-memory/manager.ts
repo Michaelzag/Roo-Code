@@ -37,8 +37,8 @@ export class ConversationMemoryManager {
 				if (!workspacePath) {
 					const workspaceFolders = vscode.workspace.workspaceFolders
 					if (!workspaceFolders || workspaceFolders.length === 0) {
-						console.log(
-							"[ConversationMemoryManager.getInstance] No workspace folders found, returning undefined",
+						console.warn(
+							"[ConversationMemoryManager.getInstance] No workspace folders found - conversation memory requires an open workspace",
 						)
 						return undefined
 					}
@@ -56,7 +56,21 @@ export class ConversationMemoryManager {
 				} catch (error) {
 					console.error("[ConversationMemoryManager.getInstance] Failed to create instance:", error)
 					console.error("[ConversationMemoryManager.getInstance] Stack trace:", (error as Error).stack)
-					throw error
+
+					// Provide specific error guidance instead of silent failure
+					const errorMessage = error instanceof Error ? error.message : String(error)
+					if (errorMessage.includes("config") || errorMessage.includes("Config")) {
+						console.error(
+							"[ConversationMemoryManager.getInstance] Configuration error - check Code Index settings",
+						)
+					} else if (errorMessage.includes("permission") || errorMessage.includes("access")) {
+						console.error(
+							"[ConversationMemoryManager.getInstance] Permission error - check workspace access",
+						)
+					}
+
+					// Still return undefined for graceful degradation but with better logging
+					return undefined
 				}
 			} else {
 				console.log("[ConversationMemoryManager.getInstance] Returning existing instance for:", workspacePath)
@@ -66,7 +80,14 @@ export class ConversationMemoryManager {
 		} catch (error) {
 			console.error("[ConversationMemoryManager.getInstance] Unhandled error in getInstance:", error)
 			console.error("[ConversationMemoryManager.getInstance] Stack trace:", (error as Error).stack)
-			// Don't throw - return undefined to let extension continue
+
+			// Provide actionable error information instead of silent failure
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			console.error(`[ConversationMemoryManager.getInstance] Error context: ${errorMessage}`)
+			console.error(
+				"[ConversationMemoryManager.getInstance] Conversation memory will be disabled for this session",
+			)
+
 			return undefined
 		}
 	}
@@ -116,25 +137,38 @@ export class ConversationMemoryManager {
 			)
 
 			if (!codeIndexManager) {
-				console.warn(
-					"[ConversationMemoryManager.initialize] Code Index manager not found, disabling conversation memory",
+				const error = new Error(
+					"Code Index manager not found - conversation memory requires Code Index to be available",
 				)
-				return // Graceful degradation - memory won't work but extension continues
+				console.warn("[ConversationMemoryManager.initialize]", error.message)
+				console.warn(
+					"[ConversationMemoryManager.initialize] Please ensure Code Index is properly installed and configured",
+				)
+				this.stateManager.setSystemState("Error", "Code Index dependency missing")
+				return // Graceful degradation with clear error state
 			}
 
 			if (!codeIndexManager.isInitialized) {
-				console.warn(
-					"[ConversationMemoryManager.initialize] Code Index not initialized yet, disabling conversation memory",
+				const error = new Error(
+					"Code Index not initialized - conversation memory depends on Code Index being ready",
 				)
-				return // Graceful degradation - memory won't work but extension continues
+				console.warn("[ConversationMemoryManager.initialize]", error.message)
+				console.warn(
+					"[ConversationMemoryManager.initialize] Wait for Code Index initialization to complete, then retry",
+				)
+				this.stateManager.setSystemState("Warning", "Waiting for Code Index initialization")
+				return // Graceful degradation with clear warning state
 			}
 
 			const codeIndexConfigMaybe = codeIndexManager.getConfigManager()
 			if (!codeIndexConfigMaybe) {
-				console.warn(
-					"[ConversationMemoryManager.initialize] Code Index configuration not available, disabling conversation memory",
+				const error = new Error(
+					"Code Index configuration not available - conversation memory requires embedder configuration",
 				)
-				return // Graceful degradation - memory won't work but extension continues
+				console.warn("[ConversationMemoryManager.initialize]", error.message)
+				console.warn("[ConversationMemoryManager.initialize] Please configure embedder settings in Code Index")
+				this.stateManager.setSystemState("Error", "Code Index configuration missing")
+				return // Graceful degradation with clear error state
 			}
 			codeIndexConfig = codeIndexConfigMaybe
 			console.log("[ConversationMemoryManager.initialize] Using existing CodeIndexConfig successfully")
@@ -162,20 +196,25 @@ export class ConversationMemoryManager {
 			console.log("[ConversationMemoryManager.initialize] Checking Code Index configuration...")
 			// Check if Code Index is configured first
 			if (!codeIndexConfig.isFeatureConfigured) {
-				console.warn(
-					"[ConversationMemoryManager.initialize] Code Index is not configured, memory feature cannot work without embeddings",
+				const error = new Error(
+					"Code Index embeddings not configured - conversation memory requires embedder setup",
 				)
+				console.warn("[ConversationMemoryManager.initialize]", error.message)
 				console.warn("[ConversationMemoryManager.initialize] Please configure Code Index embeddings first")
 				console.warn(
 					"[ConversationMemoryManager.initialize] Required: OpenAI API key or other embedder configuration in Code Index settings",
 				)
+				this.stateManager.setSystemState("Error", "Embeddings not configured - check Code Index settings")
 				return
 			}
 
 			if (!codeIndexConfig.isFeatureEnabled) {
-				console.warn(
-					"[ConversationMemoryManager.initialize] Code Index is disabled, memory feature requires it to be enabled",
+				const error = new Error(
+					"Code Index is disabled - conversation memory requires Code Index to be enabled",
 				)
+				console.warn("[ConversationMemoryManager.initialize]", error.message)
+				console.warn("[ConversationMemoryManager.initialize] Please enable Code Index in settings")
+				this.stateManager.setSystemState("Error", "Code Index disabled - enable in settings")
 				return
 			}
 
@@ -192,10 +231,26 @@ export class ConversationMemoryManager {
 				embedder = this.factory!.createEmbedder()
 				console.log("[ConversationMemoryManager.initialize] Embedder created successfully")
 			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error)
 				console.error("[ConversationMemoryManager.initialize] Failed to create embedder:", error)
 				console.error(
 					"[ConversationMemoryManager.initialize] This usually means Code Index embedder is not properly configured",
 				)
+
+				// Set specific error state based on error type
+				if (errorMessage.includes("API key") || errorMessage.includes("authentication")) {
+					this.stateManager.setSystemState("Error", "Embedder authentication failed - check API key")
+				} else if (errorMessage.includes("configuration") || errorMessage.includes("config")) {
+					this.stateManager.setSystemState(
+						"Error",
+						"Embedder configuration invalid - check Code Index settings",
+					)
+				} else {
+					this.stateManager.setSystemState("Error", `Embedder creation failed: ${errorMessage}`)
+				}
+
+				// For embedder creation failures, gracefully degrade but log the issue
+				// This allows the extension to continue working without memory features
 				return
 			}
 
@@ -209,23 +264,44 @@ export class ConversationMemoryManager {
 					testEmbedding?.length || 0,
 				)
 			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error)
 				console.error("[ConversationMemoryManager.initialize] Embedder test failed with error:", error)
 				console.error(
 					"[ConversationMemoryManager.initialize] This likely means the API key is missing or invalid",
 				)
+
+				// Set specific error state but gracefully degrade for API issues
+				if (
+					errorMessage.includes("API key") ||
+					errorMessage.includes("401") ||
+					errorMessage.includes("Unauthorized")
+				) {
+					this.stateManager.setSystemState(
+						"Error",
+						"Embedder API key invalid - check Code Index configuration",
+					)
+				} else if (errorMessage.includes("network") || errorMessage.includes("connect")) {
+					this.stateManager.setSystemState("Error", "Embedder service unreachable - check network connection")
+				} else {
+					this.stateManager.setSystemState("Error", `Embedder test failed: ${errorMessage}`)
+				}
+
+				// For API/auth failures, gracefully degrade rather than crashing
 				return
 			}
 
 			if (!testEmbedding || testEmbedding.length === 0) {
-				console.error(
-					"[ConversationMemoryManager.initialize] Embedder test failed - returning empty embeddings",
-				)
+				const error = new Error("Embedder test failed - returning empty embeddings")
+				console.error("[ConversationMemoryManager.initialize]", error.message)
 				console.error(
 					"[ConversationMemoryManager.initialize] Please check your Code Index embedding API key configuration",
 				)
 				console.error(
 					"[ConversationMemoryManager.initialize] For OpenAI: Add your API key in Code Index settings",
 				)
+
+				this.stateManager.setSystemState("Error", "Embedder returns empty results - check API key")
+				// Gracefully degrade for empty embeddings rather than throwing
 				return
 			}
 
@@ -248,12 +324,32 @@ export class ConversationMemoryManager {
 			await this.orchestrator.start()
 			console.log("[ConversationMemoryManager.initialize] Orchestrator started successfully")
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error)
 			console.error("[ConversationMemoryManager.initialize] Failed to initialize orchestrator:", error)
 			console.error("[ConversationMemoryManager.initialize] Stack trace:", (error as Error).stack)
-			console.error(
-				"[ConversationMemoryManager.initialize] This usually means Code Index embeddings are not properly configured",
-			)
-			// Don't throw - let chat continue without memory
+
+			// Set appropriate error state based on the specific failure
+			if (errorMessage.includes("embedder") || errorMessage.includes("Embedder")) {
+				this.stateManager.setSystemState("Error", "Memory initialization failed - embedder configuration issue")
+				console.error(
+					"[ConversationMemoryManager.initialize] Fix: Check Code Index embedder configuration and API keys",
+				)
+			} else if (errorMessage.includes("vector") || errorMessage.includes("Qdrant")) {
+				this.stateManager.setSystemState("Error", "Memory initialization failed - vector store unavailable")
+				console.error(
+					"[ConversationMemoryManager.initialize] Fix: Check Qdrant server connection and configuration",
+				)
+			} else if (errorMessage.includes("API key")) {
+				this.stateManager.setSystemState("Error", "Memory initialization failed - invalid API credentials")
+				console.error("[ConversationMemoryManager.initialize] Fix: Verify API keys in Code Index settings")
+			} else {
+				this.stateManager.setSystemState("Error", `Memory initialization failed: ${errorMessage}`)
+				console.error(
+					"[ConversationMemoryManager.initialize] General fix: Check Code Index embeddings configuration",
+				)
+			}
+
+			// Still don't throw to allow chat to continue, but ensure error state is visible to users
 		}
 
 		// Subscribe to Code Index events for event-driven sync
@@ -301,6 +397,9 @@ export class ConversationMemoryManager {
 	 */
 	public async collectMessage(message: import("./types").Message): Promise<void> {
 		if (!this.orchestrator) {
+			const error = new Error("Orchestrator not available - conversation memory not initialized")
+			console.warn("[ConversationMemoryManager]", error.message)
+			console.warn("[ConversationMemoryManager] Ensure memory feature is enabled and properly configured")
 			return
 		}
 
@@ -308,7 +407,15 @@ export class ConversationMemoryManager {
 		try {
 			await this.orchestrator.collectMessage(message)
 		} catch (error) {
-			console.error("[ConversationMemoryManager] Error collecting message:", (error as Error).message)
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			console.error("[ConversationMemoryManager] Error collecting message:", errorMessage)
+
+			// Don't throw but provide specific guidance
+			if (errorMessage.includes("Invalid message")) {
+				console.error("[ConversationMemoryManager] Message validation failed - check message content")
+			} else if (errorMessage.includes("Episode detector")) {
+				console.error("[ConversationMemoryManager] Episode detection unavailable - check memory configuration")
+			}
 		}
 	}
 
@@ -354,8 +461,22 @@ export class ConversationMemoryManager {
 				timeoutPromise,
 			])
 		} catch (error) {
-			// Log but don't re-throw - memory ingestion should be non-fatal
-			console.error("[ConversationMemoryManager] Error processing turn:", (error as Error).message)
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			console.error("[ConversationMemoryManager] Error processing turn:", errorMessage)
+
+			// Provide specific guidance based on error type but don't throw
+			if (errorMessage.includes("timeout")) {
+				console.error(
+					"[ConversationMemoryManager] Memory processing is taking too long - check system performance",
+				)
+			} else if (errorMessage.includes("LLM") || errorMessage.includes("API")) {
+				console.error(
+					"[ConversationMemoryManager] LLM service error during memory processing - check API status",
+				)
+			} else if (errorMessage.includes("vector") || errorMessage.includes("embedding")) {
+				console.error("[ConversationMemoryManager] Storage or embedding error - check infrastructure")
+			}
+
 			// Don't throw - let the chat continue even if memory fails
 		}
 	}

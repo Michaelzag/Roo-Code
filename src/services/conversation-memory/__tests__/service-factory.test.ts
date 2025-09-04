@@ -46,7 +46,22 @@ describe("ConversationMemoryServiceFactory", () => {
 		vi.clearAllMocks()
 
 		mockCodeIndexConfig = {
-			getConfig: vi.fn(),
+			getConfig: vi.fn().mockReturnValue({
+				isConfigured: true,
+				embedderProvider: "openai",
+				modelId: "text-embedding-ada-002",
+				modelDimension: 1536,
+				openAiOptions: { openAiNativeApiKey: "test-openai-key" },
+				ollamaOptions: undefined,
+				openAiCompatibleOptions: undefined,
+				geminiOptions: undefined,
+				mistralOptions: undefined,
+				vercelAiGatewayOptions: undefined,
+				qdrantUrl: "http://localhost:6333",
+				qdrantApiKey: "test-qdrant-key",
+				searchMinScore: 0.7,
+				searchMaxResults: 20,
+			}),
 			qdrantConfig: {
 				url: "http://localhost:6333",
 				apiKey: "test-qdrant-key",
@@ -229,6 +244,92 @@ describe("ConversationMemoryServiceFactory", () => {
 			const provider = factory.createLlmProviderFromEnv()
 
 			expect(provider).toBeUndefined()
+		})
+	})
+
+	describe("null safety and error handling", () => {
+		describe("createEmbedder with null config", () => {
+			it("should throw meaningful error when codeIndexConfig is null", () => {
+				const factoryWithNullConfig = new ConversationMemoryServiceFactory(testWorkspacePath, null)
+
+				expect(() => factoryWithNullConfig.createEmbedder()).toThrow(
+					"CodeIndexConfigManager is not available. Cannot create embedder without configuration.",
+				)
+			})
+
+			it("should throw meaningful error when getConfig returns null", () => {
+				mockCodeIndexConfig.getConfig.mockReturnValue(null)
+
+				expect(() => factory.createEmbedder()).toThrow(
+					"Code index configuration is not available. Please configure the code index settings.",
+				)
+			})
+
+			it("should handle missing embedderProvider gracefully", () => {
+				const mockCodeIndexEmbedder = { embed: vi.fn() }
+				const mockCodeIndexFactory = {
+					createEmbedder: vi.fn().mockReturnValue(mockCodeIndexEmbedder),
+				}
+				MockedCodeIndexServiceFactory.mockImplementation(() => mockCodeIndexFactory as any)
+				MockedCacheManager.mockImplementation(() => ({}) as any)
+
+				// Config without embedderProvider
+				mockCodeIndexConfig.getConfig.mockReturnValue({
+					embedderProvider: undefined,
+					modelId: undefined,
+					openAiOptions: undefined,
+				})
+
+				factory.createEmbedder()
+
+				// Should use default embedderProvider "openai"
+				expect(mockCodeIndexFactory.createEmbedder).toHaveBeenCalled()
+			})
+		})
+
+		describe("createVectorStore with null config", () => {
+			it("should use defaults when codeIndexConfig is null", () => {
+				const factoryWithNullConfig = new ConversationMemoryServiceFactory(testWorkspacePath, null)
+
+				const vectorStore = factoryWithNullConfig.createVectorStore()
+
+				expect(MockedQdrantMemoryStore).toHaveBeenCalledWith(
+					testWorkspacePath,
+					"http://localhost:6333", // default URL
+					1536, // default dimension
+					undefined, // no API key
+				)
+
+				expect(vectorStore).toBeDefined()
+			})
+
+			it("should handle missing qdrantConfig gracefully", () => {
+				mockCodeIndexConfig.qdrantConfig = undefined
+				mockCodeIndexConfig.currentModelDimension = undefined
+
+				factory.createVectorStore()
+
+				expect(MockedQdrantMemoryStore).toHaveBeenCalledWith(
+					testWorkspacePath,
+					"http://localhost:6333", // default URL
+					1536, // default dimension
+					undefined, // no API key
+				)
+			})
+
+			it("should handle null qdrantConfig gracefully", () => {
+				mockCodeIndexConfig.qdrantConfig = null
+				mockCodeIndexConfig.currentModelDimension = 768
+
+				factory.createVectorStore()
+
+				expect(MockedQdrantMemoryStore).toHaveBeenCalledWith(
+					testWorkspacePath,
+					"http://localhost:6333", // default URL
+					768, // custom dimension
+					undefined, // no API key
+				)
+			})
 		})
 	})
 

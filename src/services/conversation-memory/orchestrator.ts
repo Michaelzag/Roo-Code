@@ -83,14 +83,21 @@ export class ConversationMemoryOrchestrator {
 			const errorMessage = error?.message || String(error)
 			console.error("[ConversationMemoryOrchestrator] Failed to start:", errorMessage)
 
-			// Check for common error conditions
+			// Set error state for UI feedback
+			let userErrorMessage: string
 			if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("connect")) {
-				this.stateManager.setSystemState("Error", "Qdrant server not accessible")
+				userErrorMessage = "Qdrant server not accessible"
 			} else if (errorMessage.includes("dimension")) {
-				this.stateManager.setSystemState("Error", "Invalid embedder dimension")
+				userErrorMessage = "Invalid embedder dimension"
 			} else {
-				this.stateManager.setSystemState("Error", `Failed to initialize: ${errorMessage}`)
+				userErrorMessage = `Failed to initialize: ${errorMessage}`
 			}
+
+			this.stateManager.setSystemState("Error", userErrorMessage)
+
+			// Critical startup errors should be propagated instead of silently failing
+			// This ensures calling code knows initialization failed and can respond appropriately
+			throw new Error(`Conversation memory startup failed: ${errorMessage}`)
 		}
 	}
 
@@ -142,8 +149,20 @@ export class ConversationMemoryOrchestrator {
 	 */
 	public async collectMessage(message: Message): Promise<void> {
 		if (!this.episodeDetector) {
-			console.warn("[ConversationMemoryOrchestrator] Episode detector not available, skipping message collection")
+			const error = new Error("Episode detector not available - conversation memory collection disabled")
+			console.warn("[ConversationMemoryOrchestrator]", error.message)
+			this.stateManager.setSystemState(
+				"Warning",
+				"Memory collection unavailable - episode detection not configured",
+			)
 			return
+		}
+
+		// Validate message before adding to buffer
+		if (!message || !message.content) {
+			const error = new Error("Invalid message provided to collectMessage - missing content")
+			console.error("[ConversationMemoryOrchestrator]", error.message)
+			throw error
 		}
 
 		this.messageBuffer.push(message)
@@ -169,6 +188,18 @@ export class ConversationMemoryOrchestrator {
 			}
 		} catch (error) {
 			console.error("[ConversationMemoryOrchestrator] Background processing failed:", error)
+
+			// Set error state to inform users instead of silent failure
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("connect")) {
+				this.stateManager.setSystemState("Error", "Memory service offline - check Qdrant connection")
+			} else if (errorMessage.includes("API key") || errorMessage.includes("Unauthorized")) {
+				this.stateManager.setSystemState("Error", "Memory service authentication failed - check API keys")
+			} else if (errorMessage.includes("timeout")) {
+				this.stateManager.setSystemState("Error", "Memory service timeout - processing delayed")
+			} else {
+				this.stateManager.setSystemState("Error", `Memory processing failed: ${errorMessage}`)
+			}
 		} finally {
 			this.processingInProgress = false
 		}
@@ -188,14 +219,33 @@ export class ConversationMemoryOrchestrator {
 
 			// Process each episode
 			for (const episode of episodes) {
-				await this.processEpisode(episode)
+				try {
+					await this.processEpisode(episode)
+				} catch (episodeError) {
+					console.error(
+						`[ConversationMemoryOrchestrator] Failed to process episode ${episode.episode_id}:`,
+						episodeError,
+					)
+					// Continue with other episodes rather than failing completely
+					// But set a warning state so users know processing is degraded
+					this.stateManager.setSystemState("Warning", `Some memory processing failed - check logs`)
+				}
 			}
 
 			// Clear processed messages from buffer
 			this.messageBuffer = []
 		} catch (error) {
 			console.error("[ConversationMemoryOrchestrator] Failed to process episodes:", error)
-			throw error
+
+			// Provide specific error context instead of generic failure
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			if (errorMessage.includes("LLM") || errorMessage.includes("API")) {
+				throw new Error(`Episode processing failed due to LLM service error: ${errorMessage}`)
+			} else if (errorMessage.includes("embedding")) {
+				throw new Error(`Episode processing failed due to embedding service error: ${errorMessage}`)
+			} else {
+				throw new Error(`Episode processing failed: ${errorMessage}`)
+			}
 		}
 	}
 
@@ -254,7 +304,16 @@ export class ConversationMemoryOrchestrator {
 			}
 		} catch (error) {
 			console.error("[ConversationMemoryOrchestrator] Failed to extract facts:", error)
-			throw error
+
+			// Provide specific error context for fact extraction failures
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			if (errorMessage.includes("LLM") || errorMessage.includes("API")) {
+				throw new Error(`Fact extraction failed due to LLM service error: ${errorMessage}`)
+			} else if (errorMessage.includes("network") || errorMessage.includes("timeout")) {
+				throw new Error(`Fact extraction failed due to network error: ${errorMessage}`)
+			} else {
+				throw new Error(`Fact extraction failed: ${errorMessage}`)
+			}
 		}
 		const now = new Date()
 		for (let i = 0; i < inputs.length; i++) {
@@ -268,7 +327,31 @@ export class ConversationMemoryOrchestrator {
 				})
 			} catch (error) {
 				console.error("[ConversationMemoryOrchestrator] Failed to ingest fact:", error)
-				// Continue with other facts even if one fails
+
+				// For critical infrastructure errors, propagate them so the caller knows
+				const errorMessage = error instanceof Error ? error.message : String(error)
+				if (errorMessage.includes("embed") || errorMessage.includes("Embedding")) {
+					// Embedding service failures are critical - throw to inform caller
+					throw new Error(`Critical error: Embedding service failed during fact processing: ${errorMessage}`)
+				} else if (
+					errorMessage.includes("vector") ||
+					errorMessage.includes("store") ||
+					errorMessage.includes("ECONNREFUSED")
+				) {
+					// Vector store failures are critical - throw to inform caller
+					throw new Error(`Critical error: Vector store failed during fact processing: ${errorMessage}`)
+				}
+
+				// For non-critical errors, set state and continue with other facts
+				if (errorMessage.includes("network") || errorMessage.includes("timeout")) {
+					this.stateManager.setSystemState("Warning", "Memory service intermittent - some facts may be lost")
+				} else {
+					this.stateManager.setSystemState("Warning", "Memory processing degraded - check logs")
+				}
+
+				console.warn(
+					`[ConversationMemoryOrchestrator] Fact ingestion degraded - content: "${input.content.substring(0, 50)}..."`,
+				)
 			}
 		}
 
