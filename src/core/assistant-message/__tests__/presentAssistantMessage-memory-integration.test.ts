@@ -5,6 +5,17 @@ import type { Task } from "../../task/Task"
 
 // Mock dependencies
 vi.mock("../../../services/conversation-memory/turn-processor")
+vi.mock("@roo-code/telemetry", () => ({
+	TelemetryService: {
+		instance: {
+			captureToolUsage: vi.fn(),
+			captureConsecutiveMistakeError: vi.fn(),
+		},
+	},
+}))
+vi.mock("../../tools/validateToolUse", () => ({
+	validateToolUse: vi.fn(),
+}))
 
 describe("presentAssistantMessage - Memory Integration", () => {
 	let mockTask: Partial<Task>
@@ -89,7 +100,7 @@ describe("presentAssistantMessage - Memory Integration", () => {
 
 	it("should initialize memory processing on first tool execution", async () => {
 		// This test validates the critical fix: memory initialization should happen
-		// when currentStreamingContentIndex === 0, regardless of presentAssistantMessageLocked
+		// on any tool execution when currentStreamingDidMemoryInit is false
 
 		await presentAssistantMessage(mockTask as Task)
 
@@ -101,37 +112,59 @@ describe("presentAssistantMessage - Memory Integration", () => {
 			{ path: "test.ts", content: "test content" },
 			expect.any(String),
 		)
-	})
-
-	it("should reset initialization flag for subsequent conversation turns", () => {
-		// Simulate a completed turn scenario
-		mockTask.currentStreamingContentIndex = 0
-		mockTask.assistantMessageContent = [
-			{
-				type: "tool_use",
-				name: "read_file",
-				params: { path: "test.ts" },
-				partial: false,
-			},
-		]
-
-		// First call should initialize
-		presentAssistantMessage(mockTask as Task)
-
-		// Verify the initialization flag is properly managed
+		// Verify the initialization flag is set
 		expect((mockTask as any).currentStreamingDidMemoryInit).toBe(true)
 	})
 
 	it("should not reinitialize on subsequent tool calls in same turn", async () => {
 		// Set flag to simulate already initialized
 		;(mockTask as any).currentStreamingDidMemoryInit = true
-		mockTask.currentStreamingContentIndex = 1 // Second tool in turn
+		// Ensure we're processing the first (and only) tool, not out of bounds
+		mockTask.currentStreamingContentIndex = 0
 
 		await presentAssistantMessage(mockTask as Task)
 
 		// Should not call onAssistantStreamStart again
 		expect(mockTurnProcessor.onAssistantStreamStart).not.toHaveBeenCalled()
 		// But should still process the tool
-		expect(mockTurnProcessor.onToolProcessing).toHaveBeenCalled()
+		expect(mockTurnProcessor.onToolProcessing).toHaveBeenCalledWith(
+			mockTask,
+			"write_to_file",
+			{ path: "test.ts", content: "test content" },
+			expect.any(String),
+		)
+	})
+
+	it("should process turn completion when stream is complete", async () => {
+		// Setup task for turn completion scenario - simulate the end of stream processing
+		mockTask.currentStreamingContentIndex = 0 // Last block (will become 1 after increment)
+		mockTask.assistantMessageContent = [mockTask.assistantMessageContent![0]] // Single tool
+		;(mockTask as any).didCompleteReadingStream = true // Stream complete
+		;(mockTask as any).didRejectTool = false
+		;(mockTask as any).didAlreadyUseTool = false
+
+		// First process the tool to set initialization flag
+		await presentAssistantMessage(mockTask as Task)
+
+		// Now verify completion processing occurred
+		expect(mockTurnProcessor.onAssistantStreamComplete).toHaveBeenCalledWith(mockTask)
+		// Should mark as processed
+		expect((mockTask as any).currentStreamingDidMemoryIngest).toBe(true)
+		// The initialization flag state depends on the execution flow - the key is that completion was triggered
+	})
+
+	it("should not process turn completion when stream is not complete", async () => {
+		// Setup task for incomplete stream scenario
+		mockTask.currentStreamingContentIndex = 0 // Last block
+		mockTask.assistantMessageContent = [mockTask.assistantMessageContent![0]] // Single tool
+		;(mockTask as any).didCompleteReadingStream = false // Stream NOT complete
+		;(mockTask as any).userMessageContentReady = false
+
+		await presentAssistantMessage(mockTask as Task)
+
+		// Should NOT process completion when stream is not complete
+		expect(mockTurnProcessor.onAssistantStreamComplete).not.toHaveBeenCalled()
+		// Should not mark as processed
+		expect((mockTask as any).currentStreamingDidMemoryIngest).toBeUndefined()
 	})
 })

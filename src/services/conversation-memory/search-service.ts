@@ -11,7 +11,11 @@ export class ConversationMemorySearchService {
 		private readonly vectorStore: IVectorStore,
 		private readonly temporal: TemporalScorer,
 		private readonly workspacePath: string,
-		private readonly blendAlpha = 0.65,
+		private readonly blendAlpha = ((): number => {
+			const raw = process.env.MEMORY_RANK_BLEND_ALPHA
+			const v = raw ? Number(raw) : NaN
+			return !isNaN(v) && v >= 0 && v <= 1 ? v : 0.65
+		})(),
 	) {
 		this.episodeSearchService = new EpisodeSearchService(
 			this.embedder,
@@ -31,7 +35,12 @@ export class ConversationMemorySearchService {
 			const total = this.blendAlpha * sim + (1 - this.blendAlpha) * temporal
 			return { total, rec: r }
 		})
-		return scored.sort((a, b) => b.total - a.total).map((x) => x.rec.payload as ConversationFact)
+		return scored
+			.sort((a, b) => b.total - a.total)
+			.map((x) => ({
+				...(x.rec.payload as ConversationFact),
+				score: x.total,
+			}))
 	}
 
 	/**

@@ -67,6 +67,8 @@ export const toolParamNames = [
 	"todos",
 	"prompt",
 	"image",
+	"episode_id",
+	"limit",
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
@@ -197,6 +199,7 @@ export const TOOL_DISPLAY_NAMES: Record<ToolName, string> = {
 	search_and_replace: "search and replace",
 	codebase_search: "codebase search",
 	memory_search: "memory search",
+	memory_episode_details: "episode details",
 	update_todo_list: "update todo list",
 	generate_image: "generate images",
 } as const
@@ -212,6 +215,7 @@ export const TOOL_GROUPS: Record<ToolGroup, ToolGroupConfig> = {
 			"list_code_definition_names",
 			"codebase_search",
 			"memory_search",
+			"memory_episode_details",
 		],
 	},
 	edit: {

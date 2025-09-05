@@ -26,8 +26,10 @@ export class ConversationMemoryTurnProcessor {
 	private static readonly MAX_TOOLS_PER_CHUNK = 15 // Process every 15 tools to prevent information loss
 	private static readonly MAX_TOOLS_PER_TURN = 50 // Force turn completion after 50 tools
 	private static readonly CHUNK_PROCESSING_DELAY = 2000 // 2 second delay between chunks
+	private static readonly CHUNK_RATE_LIMIT_MS = 1500 // Minimum interval between chunk ingestions
 
 	private turnBuffers = new Map<string, TurnBuffer>()
+	private lastChunkIngestAt = new Map<string, number>()
 
 	static getInstance(): ConversationMemoryTurnProcessor {
 		if (!this.instance) {
@@ -156,7 +158,17 @@ export class ConversationMemoryTurnProcessor {
 		if (!context) return
 
 		const manager = ConversationMemoryManager.getInstance(context, cwd)
-		if (!manager || !manager.isFeatureEnabled || !manager.isInitialized) return
+		console.log("🧠 [CONVERSATION MEMORY] 📊 TURN PROCESSING:", {
+			hasManager: !!manager,
+			isFeatureEnabled: manager?.isFeatureEnabled,
+			isInitialized: manager?.isInitialized,
+			workspace: cwd,
+			toolTypes: { hasSubTask: buffer.hasSubTaskTool, hasMcp: buffer.hasMcpTool, hasFile: buffer.hasFileTool },
+		})
+		if (!manager || !manager.isFeatureEnabled || !manager.isInitialized) {
+			console.log("🧠 [CONVERSATION MEMORY] ⏭️ SKIPPING: Manager not ready")
+			return
+		}
 
 		// Build context messages (current + last 4 pairs)
 		const contextMessages = this.buildContextMessages(cline, buffer)
@@ -165,19 +177,22 @@ export class ConversationMemoryTurnProcessor {
 		const modelId = cline.api?.getModel?.().id
 		const toolMeta = (cline as any).memoryLastTool
 
+		// Build a fuller conversation history for high-quality episode detection
+		const fullHistory = this.buildFullHistoryMessages(cline)
+
 		// Determine processing strategy based on tool types
 		if (buffer.hasSubTaskTool) {
 			// SUB-TASK: Block and process immediately to seed sub-task memory
-			await this.processSubTaskTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider)
+			await this.processSubTaskTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider, fullHistory)
 		} else if (buffer.hasMcpTool) {
 			// MCP TOOLS: Priority processing but non-blocking
-			await this.processMcpTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider)
+			await this.processMcpTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider, fullHistory)
 		} else if (buffer.hasFileTool) {
 			// FILE TOOLS: Coordinate with codebase indexing
-			await this.processFileTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider)
+			await this.processFileTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider, fullHistory)
 		} else {
 			// NORMAL TOOLS: Standard non-blocking processing
-			await this.processNormalTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider)
+			await this.processNormalTurn(manager, contextMessages, cline.api, modelId, toolMeta, provider, fullHistory)
 		}
 	}
 
@@ -259,16 +274,19 @@ export class ConversationMemoryTurnProcessor {
 		modelId: string | undefined,
 		toolMeta: any,
 		provider: any,
+		fullHistory?: MemoryMessage[],
 	): Promise<void> {
 		// Notify UI: blocking processing started
 		this.notifyUI(provider, "extract", "started", "Processing turn before sub-task (blocking)")
 
 		try {
 			// BLOCKING: Wait for memory processing to complete
-			await manager.ingestTurn(messages as any, api as any, modelId, toolMeta as any)
+			console.log("🧠 [CONVERSATION MEMORY] 🔄 PROCESSING SUB-TASK TURN (blocking)")
+			await manager.ingestTurn(messages as any, api as any, modelId, toolMeta as any, fullHistory as any)
+			console.log("🧠 [CONVERSATION MEMORY] ✅ SUB-TASK turn processed successfully")
 			this.notifyUI(provider, "extract", "completed", "Turn processed, sub-task memory ready")
 		} catch (error) {
-			console.error("[ConversationMemoryTurnProcessor] Sub-task turn processing failed:", error)
+			console.error("🧠 [CONVERSATION MEMORY] ❌ Sub-task turn processing failed:", error)
 			this.notifyUI(provider, "extract", "failed", `Processing failed: ${error}`)
 			throw error // Re-throw for sub-task to handle
 		}
@@ -284,17 +302,21 @@ export class ConversationMemoryTurnProcessor {
 		modelId: string | undefined,
 		toolMeta: any,
 		provider: any,
+		fullHistory?: MemoryMessage[],
 	): Promise<void> {
 		this.notifyUI(provider, "extract", "started", "Priority processing MCP tool turn")
 
 		// Non-blocking but prioritized
+		console.log("🧠 [CONVERSATION MEMORY] 🔄 PROCESSING MCP TURN (priority, non-blocking)")
+		const metaWithHistory = toolMeta ? { ...toolMeta, __fullHistory: fullHistory } : { __fullHistory: fullHistory }
 		manager
-			.ingestTurn(messages as any, api as any, modelId, toolMeta as any)
+			.ingestTurn(messages as any, api as any, modelId, metaWithHistory as any)
 			.then(() => {
+				console.log("🧠 [CONVERSATION MEMORY] ✅ MCP turn processed successfully")
 				this.notifyUI(provider, "extract", "completed", "MCP turn processed")
 			})
 			.catch((error) => {
-				console.error("[ConversationMemoryTurnProcessor] MCP turn processing failed:", error)
+				console.error("🧠 [CONVERSATION MEMORY] ❌ MCP turn processing failed:", error)
 				this.notifyUI(provider, "extract", "failed", `MCP processing failed: ${error}`)
 			})
 	}
@@ -309,6 +331,7 @@ export class ConversationMemoryTurnProcessor {
 		modelId: string | undefined,
 		toolMeta: any,
 		provider: any,
+		fullHistory?: MemoryMessage[],
 	): Promise<void> {
 		this.notifyUI(provider, "extract", "started", "Processing file tool turn (waiting for codebase sync)")
 
@@ -317,7 +340,10 @@ export class ConversationMemoryTurnProcessor {
 		return new Promise((resolve, reject) => {
 			setTimeout(async () => {
 				try {
-					await manager.ingestTurn(messages as any, api as any, modelId, toolMeta as any)
+					const metaWithHistory = toolMeta
+						? { ...toolMeta, __fullHistory: fullHistory }
+						: { __fullHistory: fullHistory }
+					await manager.ingestTurn(messages as any, api as any, modelId, metaWithHistory as any)
 					this.notifyUI(provider, "extract", "completed", "File tool turn processed")
 					resolve()
 				} catch (error) {
@@ -339,12 +365,14 @@ export class ConversationMemoryTurnProcessor {
 		modelId: string | undefined,
 		toolMeta: any,
 		provider: any,
+		fullHistory?: MemoryMessage[],
 	): Promise<void> {
 		this.notifyUI(provider, "extract", "started", "Processing conversation turn")
 
 		// Non-blocking background processing
+		const metaWithHistory = toolMeta ? { ...toolMeta, __fullHistory: fullHistory } : { __fullHistory: fullHistory }
 		manager
-			.ingestTurn(messages as any, api as any, modelId, toolMeta as any)
+			.ingestTurn(messages as any, api as any, modelId, metaWithHistory as any)
 			.then(() => {
 				this.notifyUI(provider, "extract", "completed", "Turn processed")
 			})
@@ -393,6 +421,39 @@ export class ConversationMemoryTurnProcessor {
 		} catch {
 			return String(content)
 		}
+	}
+
+	/**
+	 * Build a full conversation history for episode detection (last ~100 messages)
+	 */
+	private buildFullHistoryMessages(cline: Task): MemoryMessage[] {
+		const history = cline.apiConversationHistory || []
+		const recent = history.slice(-100)
+		const toText = (c: any): string => {
+			if (typeof c === "string") return c
+			if (Array.isArray(c)) {
+				return c
+					.map((b: any) => (typeof b === "string" ? b : typeof b?.text === "string" ? b.text : ""))
+					.filter((t: string) => t)
+					.join("\n")
+			}
+			try {
+				return JSON.stringify(c)
+			} catch {
+				return String(c)
+			}
+		}
+
+		const out: MemoryMessage[] = []
+		for (const m of recent) {
+			const role = (m as any)?.role
+			if (role !== "user" && role !== "assistant") continue
+			const content = toText((m as any)?.content)
+			if (!content || !content.trim()) continue
+			const ts = (m as any)?.ts
+			out.push({ role, content, timestamp: ts ? new Date(ts).toISOString() : new Date().toISOString() })
+		}
+		return out
 	}
 
 	/**
@@ -446,6 +507,14 @@ export class ConversationMemoryTurnProcessor {
 		const manager = ConversationMemoryManager.getInstance(context, cwd)
 		if (!manager || !manager.isFeatureEnabled || !manager.isInitialized) return
 
+		// Rate limit chunk processing to avoid burst costs
+		const now = Date.now()
+		const last = this.lastChunkIngestAt.get(buffer.workspaceId) || 0
+		if (now - last < ConversationMemoryTurnProcessor.CHUNK_RATE_LIMIT_MS) {
+			return
+		}
+		this.lastChunkIngestAt.set(buffer.workspaceId, now)
+
 		// Build context for current chunk - use current conversation state
 		const chunkMessages = this.buildChunkContextMessages(cline, buffer)
 		if (chunkMessages.length < 2) return // Need at least user + partial assistant
@@ -469,8 +538,11 @@ export class ConversationMemoryTurnProcessor {
 			}
 
 			// Non-blocking chunk processing
+			const metaWithHistory = toolMeta
+				? { ...toolMeta, __fullHistory: this.buildFullHistoryMessages(cline) }
+				: { __fullHistory: this.buildFullHistoryMessages(cline) }
 			manager
-				.ingestTurn(enhancedMessages as any, cline.api as any, modelId, toolMeta as any)
+				.ingestTurn(enhancedMessages as any, cline.api as any, modelId, metaWithHistory as any)
 				.then(() => {
 					this.notifyUI(
 						provider,

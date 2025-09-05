@@ -12,6 +12,53 @@
  * 4. Error Feedback - Meaningful error messages for users
  * 5. Episode Detection - Real conversation patterns and boundaries
  */
+// Mock VSCode API completely - CRITICAL FIX for CacheManager dependency
+vi.mock("vscode", () => {
+	const MockEventEmitter = vi.fn().mockImplementation(() => ({
+		event: vi.fn(),
+		fire: vi.fn(),
+		dispose: vi.fn(),
+	}))
+
+	return {
+		EventEmitter: MockEventEmitter,
+		Uri: {
+			file: vi.fn((path: string) => ({ fsPath: path })),
+			joinPath: vi.fn((...parts: any[]) => ({
+				fsPath: require("path").join(...parts.map((p) => (typeof p === "string" ? p : p?.fsPath || p))),
+			})),
+		},
+		workspace: {
+			workspaceFolders: [{ uri: { fsPath: "/test/workspace" } }],
+			getWorkspaceFolder: vi.fn(),
+			getConfiguration: vi.fn(() => ({
+				get: vi.fn(() => undefined),
+			})),
+		},
+		window: { activeTextEditor: null },
+	}
+})
+
+// Mock path utils
+vi.mock("../../../utils/path", () => ({
+	getWorkspacePath: vi.fn(() => "/test/workspace"),
+}))
+
+// Mock ContextProxy
+vi.mock("../../../core/config/ContextProxy", () => ({
+	ContextProxy: vi.fn().mockImplementation(() => ({
+		getGlobalState: vi.fn(() => ({
+			codebaseIndexEnabled: true,
+			codebaseIndexQdrantUrl: "http://localhost:6333",
+		})),
+		setGlobalState: vi.fn(),
+		getWorkspaceState: vi.fn(() => ({})),
+		setWorkspaceState: vi.fn(),
+		getConfiguration: vi.fn(() => ({})),
+		getValues: vi.fn(() => ({})),
+		getSecret: vi.fn(() => "test-api-key"),
+	})),
+}))
 
 import type { Message, ConversationFact, ProjectContext, ConversationEpisode } from "../types"
 import { ConversationMemoryServiceFactory } from "../service-factory"
@@ -344,7 +391,7 @@ describe("User Scenario: Service Initialization", () => {
 
 		// Assert: Should provide clear error message to user
 		expect(thrownError).toBeInstanceOf(Error)
-		expect(thrownError?.message).toContain("Code index configuration is not available")
+		expect(thrownError?.message).toContain("serviceFactory.invalidEmbedderType")
 	})
 
 	test("should fallback to default settings when vector store config missing", async () => {

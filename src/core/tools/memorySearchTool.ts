@@ -130,6 +130,7 @@ Answer with {"valid": true|false, "reason": "short"}.`
 					const moreFactsNote = facts.length > 3 ? `\n  • ... and ${facts.length - 3} more facts` : ""
 
 					return `EPISODE: ${episode.episode_context} (${episode.timeframe})
+ID: ${episode.episode_id}
 Score: ${episode.relevance_score.toFixed(2)} | ${episode.fact_count} facts
 ${factSummary}${moreFactsNote}`
 				})

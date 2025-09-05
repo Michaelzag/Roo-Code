@@ -235,8 +235,12 @@ Messages: ${JSON.stringify(convo)}`
 		return m.timestamp ? new Date(m.timestamp).getTime() : 0
 	}
 
-	private makeEpisodeId(slice: Message[], ws: string, firstTs: number, lastTs: number): string {
-		const fingerprint = `${slice[0]?.content.slice(0, 50)}|${slice[slice.length - 1]?.content.slice(0, 50)}|${firstTs}|${lastTs}`
+	private makeEpisodeId(slice: Message[], ws: string, firstTs: number, _lastTs: number): string {
+		// Stabilize episode IDs for the entire lifetime of the episode by anchoring
+		// the fingerprint to the first message content and the start time only.
+		// This keeps the ID consistent as the episode grows across turns.
+		const firstContent = (slice[0]?.content || "").slice(0, 120)
+		const fingerprint = `${firstContent}|${firstTs}`
 		const hash = createHash("sha256").update(ws).update(fingerprint).digest("hex").slice(0, 10)
 		return `ep_${hash}`
 	}

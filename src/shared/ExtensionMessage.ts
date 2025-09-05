@@ -147,6 +147,7 @@ export interface ExtensionMessage {
 		| "promptsButtonClicked"
 		| "marketplaceButtonClicked"
 		| "cloudButtonClicked"
+		| "memoryButtonClicked"
 		| "didBecomeVisible"
 		| "focusInput"
 		| "switchTab"

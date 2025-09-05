@@ -303,8 +303,8 @@ describe("TemporalScorer", () => {
 
 			const score = scorer.score(unknownFact, mockDate)
 
-			// Should return undefined for unknown category (implementation behavior)
-			expect(score).toBeUndefined()
+			// Should return default score for unknown category (implementation behavior)
+			expect(score).toBeCloseTo(0.56, 2) // base 0.8 * 0.7 = 0.56 (within 2 decimal places)
 		})
 
 		it("should handle facts with zero confidence", () => {

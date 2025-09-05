@@ -2,11 +2,33 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { ConversationMemoryOrchestrator } from "../orchestrator"
 import { ConversationMemoryStateManager } from "../state-manager"
 import type { IEmbedder, IVectorStore } from "../interfaces"
-import * as fs from "fs/promises"
 
+// Mock fs/promises directly
+const mockRm = vi.fn().mockResolvedValue(undefined)
 vi.mock("fs/promises", () => ({
-	rm: vi.fn().mockResolvedValue(undefined),
+	rm: mockRm,
 }))
+
+// Mock path directly
+const mockJoin = vi.fn((...args) => args.join("/"))
+vi.mock("path", () => ({
+	join: mockJoin,
+}))
+
+// Mock Node.js require to intercept dynamic requires
+const originalRequire = globalThis.require
+vi.stubGlobal(
+	"require",
+	vi.fn((id: string) => {
+		if (id === "fs/promises") {
+			return { rm: mockRm }
+		}
+		if (id === "path") {
+			return { join: mockJoin }
+		}
+		return originalRequire?.(id)
+	}),
+)
 
 describe("ConversationMemoryOrchestrator.clearMemoryData", () => {
 	let stateManager: ConversationMemoryStateManager
@@ -39,7 +61,8 @@ describe("ConversationMemoryOrchestrator.clearMemoryData", () => {
 		await orch.clearMemoryData()
 
 		expect((mockVectorStore as any).deleteCollection).toHaveBeenCalledTimes(1)
-		expect(fs.rm).toHaveBeenCalledWith("/test/workspace/.roo-memory", { recursive: true, force: true })
+		// Verify the mocked rm function was called correctly
+		expect(mockRm).toHaveBeenCalledWith("/test/workspace/.roo-memory", { recursive: true, force: true })
 		expect(stateManager.state).toBe("Standby")
 		expect(stateManager.getCurrentStatus().systemMessage).toMatch(/cleared successfully/i)
 	})

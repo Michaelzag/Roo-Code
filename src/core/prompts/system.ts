@@ -243,42 +243,77 @@ async function getRelevantMemorySection(context: vscode.ExtensionContext, cwd: s
 		const budget = vscode.workspace
 			.getConfiguration("roo.conversationMemory")
 			.get<number>("promptBudgetTokens", 400)
+
+		// Prefer episodes first for coherence using three internal seed queries
 		const q1 = "project tech stack"
 		const q2 = "architecture decisions"
 		const q3 = "recent debugging lessons"
-		const [a, b, c] = await Promise.all([
-			manager.searchMemory(q1),
-			manager.searchMemory(q2),
-			manager.searchMemory(q3),
+		const [e1, e2, e3] = await Promise.all([
+			manager.searchEpisodes(q1, 2),
+			manager.searchEpisodes(q2, 2),
+			manager.searchEpisodes(q3, 2),
 		])
-		const merged = [...a, ...b, ...c]
-		if (!merged.length) return ""
-		const seen = new Set<string>()
-		const items: string[] = []
-		for (const f of merged) {
-			const key = (f.category || "") + "::" + (f.content || "")
-			if (seen.has(key)) continue
-			seen.add(key)
-			const date = new Date(f.reference_time).toISOString().slice(0, 10)
-			items.push(`- ${f.category.toUpperCase()}: ${f.content} (${date})`)
-			if (items.length >= 8) break
+		const episodes = [...(e1 || []), ...(e2 || []), ...(e3 || [])]
+		const seenEp = new Set<string>()
+		const episodeLines: string[] = []
+		for (const ep of episodes) {
+			if (!ep?.episode_id || seenEp.has(ep.episode_id)) continue
+			seenEp.add(ep.episode_id)
+			// Simple relevance gating
+			if (typeof ep.relevance_score === "number" && ep.relevance_score < 0.35) continue
+			const facts = (ep.facts || []).slice(0, 2)
+			const bullets = facts
+				.map((f) => `  • ${String(f.category || "").toUpperCase()}: ${scrub(f.content)}`)
+				.join("\n")
+			episodeLines.push(`EPISODE: ${ep.episode_context} (${ep.timeframe})\n${bullets}`)
+			if (episodeLines.length >= 4) break
 		}
-		if (!items.length) return ""
-		// Respect token budget approximately by trimming list and content
-		const approxTokens = (s: string) => Math.ceil(s.length / 4)
-		let section = `# Relevant Memory (auto)\n${items.join("\n")}`
-		while (approxTokens(section) > budget && items.length > 1) {
-			items.pop()
+
+		let section = ""
+		if (episodeLines.length) {
+			section = `# Relevant Memory (auto)\n${episodeLines.join("\n\n")}`
+		} else {
+			// Fallback to facts if no episodes qualify
+			const [a, b, c] = await Promise.all([
+				manager.searchMemory(q1),
+				manager.searchMemory(q2),
+				manager.searchMemory(q3),
+			])
+			const merged = [...(a || []), ...(b || []), ...(c || [])]
+			if (!merged.length) return ""
+			const seen = new Set<string>()
+			const items: string[] = []
+			for (const f of merged) {
+				const key = (f.category || "") + "::" + (f.content || "")
+				if (seen.has(key)) continue
+				seen.add(key)
+				const date = new Date(f.reference_time).toISOString().slice(0, 10)
+				items.push(`- ${String(f.category || "").toUpperCase()}: ${scrub(f.content)} (${date})`)
+				if (items.length >= 8) break
+			}
+			if (!items.length) return ""
 			section = `# Relevant Memory (auto)\n${items.join("\n")}`
 		}
+		// Respect token budget approximately by trimming content
+		const approxTokens = (s: string) => Math.ceil(s.length / 4)
+		while (approxTokens(section) > budget && section.includes("\n\n")) {
+			section = section.slice(0, section.lastIndexOf("\n\n"))
+		}
 		if (approxTokens(section) > budget) {
-			// As last resort, hard trim
 			const head = `# Relevant Memory (auto)\n`
 			const room = Math.max(0, budget * 4 - head.length)
-			section = head + items.join("\n").slice(0, room)
+			section = head + section.slice(head.length, head.length + room)
 		}
 		return section
 	} catch {
 		return ""
 	}
+}
+
+function scrub(text: string): string {
+	let t = text || ""
+	t = t.replace(/(api[_-]?key|token|password|secret|bearer)\s*[:=]\s*[^\s'";]+/gi, "$1=[REDACTED]")
+	t = t.replace(/^([A-Z0-9_]+)=(.+)$/gm, "$1=[REDACTED]")
+	t = t.replace(/\.roo-memory\/artifacts\/[\w.-]+/g, ".roo-memory/artifacts/[redacted]")
+	return t
 }

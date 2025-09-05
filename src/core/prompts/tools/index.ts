@@ -25,6 +25,7 @@ import { getSwitchModeDescription } from "./switch-mode"
 import { getNewTaskDescription } from "./new-task"
 import { getCodebaseSearchDescription } from "./codebase-search"
 import { getMemorySearchDescription } from "./memory-search"
+import { getMemoryEpisodeDetailsDescription } from "./memory-episode-details"
 import { getUpdateTodoListDescription } from "./update-todo-list"
 import { getGenerateImageDescription } from "./generate-image"
 import { CodeIndexManager } from "../../../services/code-index/manager"
@@ -52,6 +53,7 @@ const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined>
 	access_mcp_resource: (args) => getAccessMcpResourceDescription(args),
 	codebase_search: (args) => getCodebaseSearchDescription(args),
 	memory_search: (args) => getMemorySearchDescription(args),
+	memory_episode_details: (args) => getMemoryEpisodeDetailsDescription(args),
 	switch_mode: () => getSwitchModeDescription(),
 	new_task: (args) => getNewTaskDescription(args),
 	insert_content: (args) => getInsertContentDescription(args),
@@ -128,10 +130,11 @@ export function getToolDescriptionsForMode(
 		tools.delete("codebase_search")
 	}
 
-	// Conditionally exclude memory_search when not ready (follows Code Index pattern)
+	// Conditionally exclude memory tools when not ready (follows Code Index pattern)
 	const memoryReady = settings?.conversationMemoryReady === true
 	if (!memoryReady) {
 		tools.delete("memory_search")
+		tools.delete("memory_episode_details")
 	}
 
 	// Conditionally exclude update_todo_list if disabled in settings

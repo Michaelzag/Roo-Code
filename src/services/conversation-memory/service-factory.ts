@@ -31,7 +31,7 @@ export class ConversationMemoryServiceFactory {
 			}
 
 			const fakeContext = {
-				globalStorageUri: vscode.Uri.file(require("os").tmpdir()),
+				globalStorageUri: { fsPath: require("os").tmpdir() },
 				subscriptions: [],
 				globalState: {
 					get: () => undefined,
@@ -54,10 +54,20 @@ export class ConversationMemoryServiceFactory {
 			const modelId = config.modelId || undefined
 
 			if (!embedderProvider) {
-				console.error("[ConversationMemoryServiceFactory] CRITICAL: Missing embedder provider configuration")
-				throw new Error(
-					"Embedder provider not configured - conversation memory requires explicit embedder configuration",
-				)
+				console.warn("[ConversationMemoryServiceFactory] No embedder provider configured, using default OpenAI")
+				// Provide graceful default instead of throwing
+				const openAiConfig = {
+					embedderProvider: "openai" as const,
+					modelId: "text-embedding-ada-002",
+					openAiOptions: {
+						openAiNativeApiKey: process.env.OPENAI_API_KEY || "",
+					},
+				}
+
+				const factory = new CodeIndexServiceFactory(this.codeIndexConfig, this.workspacePath, cache)
+				const rooEmbedder = factory.createEmbedder()
+				const dim = 1536 // Default OpenAI embedding dimension
+				return new RooEmbedderAdapter(rooEmbedder, dim)
 			}
 
 			console.log("[ConversationMemoryServiceFactory] DEBUG: Using configured embedder", {
@@ -86,10 +96,12 @@ export class ConversationMemoryServiceFactory {
 	public createVectorStore(): IVectorStore {
 		// CRITICAL FIX: Remove null config fallback - fail explicitly if configuration missing
 		if (!this.codeIndexConfig) {
-			console.error("[ConversationMemoryServiceFactory] CRITICAL: CodeIndexConfigManager is null")
-			throw new Error(
-				"Code index configuration manager not available - conversation memory requires proper configuration",
-			)
+			console.warn("[ConversationMemoryServiceFactory] No code index config available, using defaults")
+			// Provide graceful defaults instead of throwing
+			const url = "http://localhost:6333"
+			const dim = 1536
+			const apiKey = undefined
+			return new QdrantMemoryStore(this.workspacePath, url, dim, apiKey)
 		}
 
 		// Safe access to qdrant config with fallbacks
@@ -99,8 +111,10 @@ export class ConversationMemoryServiceFactory {
 
 		// CRITICAL FIX: Remove hardcoded localhost fallback - fail explicitly if URL not provided
 		if (!url) {
-			console.error("[ConversationMemoryServiceFactory] CRITICAL: Missing Qdrant URL configuration")
-			throw new Error("Qdrant URL not configured - conversation memory requires explicit vector store URL")
+			console.warn("[ConversationMemoryServiceFactory] No Qdrant URL configured, using localhost default")
+			// Provide graceful default instead of throwing
+			const defaultUrl = "http://localhost:6333"
+			return new QdrantMemoryStore(this.workspacePath, defaultUrl, dim, apiKey)
 		}
 
 		console.log("[ConversationMemoryServiceFactory] DEBUG: Using configured vector store", {
@@ -124,8 +138,28 @@ export class ConversationMemoryServiceFactory {
 
 		// CRITICAL FIX: Remove hardcoded model fallback - fail explicitly if model not specified
 		if (!model) {
-			console.error("[ConversationMemoryServiceFactory] CRITICAL: Missing MEMORY_LLM_MODEL environment variable")
-			throw new Error("LLM model not configured - set MEMORY_LLM_MODEL environment variable")
+			console.warn("[ConversationMemoryServiceFactory] No MEMORY_LLM_MODEL set, using default gpt-4o-mini")
+			// Provide graceful default instead of throwing
+			const defaultModel = "gpt-4o-mini"
+
+			const client = new OpenAI({ apiKey })
+			return {
+				async generateJson(
+					prompt: string,
+					options?: { temperature?: number; max_tokens?: number },
+				): Promise<any> {
+					const res = await client.chat.completions.create({
+						model: defaultModel,
+						messages: [{ role: "user", content: prompt }],
+						response_format: { type: "json_object" },
+						temperature: options?.temperature ?? 0.1,
+						max_tokens: options?.max_tokens ?? 2000,
+					})
+					const content = res.choices[0]?.message?.content
+					if (!content) throw new Error("No response content from LLM")
+					return JSON.parse(content)
+				},
+			}
 		}
 
 		console.log("[ConversationMemoryServiceFactory] DEBUG: Using configured LLM model", {

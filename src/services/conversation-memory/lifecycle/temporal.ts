@@ -41,6 +41,9 @@ export class TemporalScorer {
 				const decay = Math.max(0.5, 1 - days / decayDays)
 				return base * (this.cfg.patternBase ?? 0.8) * decay
 			}
+			default:
+				// Handle unknown categories (requirement, solution, workflow, test, etc.)
+				return base * 0.7
 		}
 	}
 }

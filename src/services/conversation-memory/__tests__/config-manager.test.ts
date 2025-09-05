@@ -50,7 +50,9 @@ describe("ConversationMemoryConfigManager", () => {
 
 		mockedCodeIndexConfigManager.mockImplementation(() => mockCodeIndexConfig)
 
-		configManager = new ConversationMemoryConfigManager(mockContextProxy, mockCodeIndexConfig)
+		// Create an instance of the mocked CodeIndexConfigManager
+		const codeIndexInstance = new CodeIndexConfigManager({} as any)
+		configManager = new ConversationMemoryConfigManager(mockContextProxy, codeIndexInstance)
 	})
 
 	describe("constructor", () => {
@@ -88,6 +90,26 @@ describe("ConversationMemoryConfigManager", () => {
 				promptBudgetTokens: 400,
 				memoryToolDefaultLimit: 10,
 				dailyProcessingBudgetUSD: 1.0,
+				episodes: {
+					timeGapMin: 30,
+					maxMessages: 25,
+					segmentation: {
+						mode: "semantic",
+						semantic: {
+							driftK: 2.5,
+							minWindow: 5,
+							distance: "cosine",
+						},
+						boundaryRefiner: true,
+					},
+					context: {
+						preferLLM: true,
+						hints: {
+							source: "auto",
+							extra: [],
+						},
+					},
+				},
 				qdrantUrl: "http://localhost:6333",
 				qdrantApiKey: "",
 				embedderDimension: 1536,

@@ -20,9 +20,12 @@ export class ConversationMemoryOrchestrator {
 	private messageBuffer: Message[] = []
 	private processingInProgress = false
 
+	private retention?: import("./lifecycle/retention").DebugFactRetentionService
+
 	// CRITICAL FIX: Track initialization state to prevent race conditions
 	private isInitialized = false
 	private initializationPromise: Promise<void> | null = null
+	private initializationError: Error | null = null
 
 	constructor(
 		private readonly workspacePath: string,
@@ -109,6 +112,21 @@ export class ConversationMemoryOrchestrator {
 		await this.start()
 	}
 
+	/**
+	 * Get the current initialization status including error details
+	 */
+	public getInitializationStatus(): {
+		isInitialized: boolean
+		isInitializing: boolean
+		error: Error | null
+	} {
+		return {
+			isInitialized: this.isInitialized,
+			isInitializing: !!this.initializationPromise && !this.isInitialized,
+			error: this.initializationError,
+		}
+	}
+
 	private async performInitialization(): Promise<void> {
 		console.log("[ConversationMemoryOrchestrator] Starting orchestrator", {
 			workspacePath: this.workspacePath,
@@ -131,8 +149,18 @@ export class ConversationMemoryOrchestrator {
 
 			this.stateManager.setSystemState("Indexed", "Conversation memory ready")
 
+			// Start retention service (best-effort)
+			try {
+				const { DebugFactRetentionService } = await import("./lifecycle/retention")
+				this.retention = new DebugFactRetentionService(this.vectorStore as any, this.workspacePath)
+				this.retention.start()
+			} catch {
+				// ignore
+			}
+
 			console.log("[ConversationMemoryOrchestrator] Start completed successfully")
 		} catch (error: any) {
+			this.initializationError = error instanceof Error ? error : new Error(String(error))
 			const errorMessage = error?.message || String(error)
 			console.error("[ConversationMemoryOrchestrator] Failed to start:", errorMessage)
 			console.error("[ConversationMemoryOrchestrator] Error details:", {
@@ -162,6 +190,9 @@ export class ConversationMemoryOrchestrator {
 
 	public stop(): void {
 		if (this.stateManager.state !== "Error") this.stateManager.setSystemState("Standby", "")
+		try {
+			this.retention?.stop()
+		} catch {}
 	}
 
 	/**
@@ -341,8 +372,18 @@ export class ConversationMemoryOrchestrator {
 	public async processTurn(
 		messages: Message[],
 		llmOverride?: ILlmProvider,
-		meta?: { modelId?: string; toolMeta?: { name: string; params: any; resultText?: string } },
+		meta?: {
+			modelId?: string
+			toolMeta?: { name: string; params: any; resultText?: string }
+			fullHistory?: Message[]
+		},
 	): Promise<void> {
+		console.log("🧠 [CONVERSATION MEMORY] 🎯 ORCHESTRATOR processTurn CALLED", {
+			messageCount: messages.length,
+			modelId: meta?.modelId,
+			toolName: meta?.toolMeta?.name,
+			workspacePath: this.workspacePath,
+		})
 		// Process turn for conversation memory
 
 		if (!messages || messages.length === 0) {
@@ -350,14 +391,34 @@ export class ConversationMemoryOrchestrator {
 		}
 
 		const project = await this.detectProjectContext()
+
+		// Determine episode for this turn using full conversation history when provided
+		let episodeForTurn: { id?: string; context?: string } | undefined
+		try {
+			// Only run episode detection when a full history was explicitly provided.
+			if (meta?.fullHistory && Array.isArray(meta.fullHistory) && meta.fullHistory.length > 0) {
+				const ep = await this.detectEpisodeForTurn(meta.fullHistory, project, llmOverride)
+				if (ep) {
+					episodeForTurn = { id: ep.episode_id, context: ep.context_description }
+				}
+			}
+		} catch (e) {
+			console.warn(
+				"[ConversationMemoryOrchestrator] Episode detection failed, continuing without episode linkage:",
+				(e as any)?.message || e,
+			)
+		}
 		const extractor = new ConversationFactExtractor(this.llm)
 		// Keep a small window (defaults to last 5 messages)
 		let window = messages.slice(-5)
-		// Append TOOL and TOOL_OUT lines as synthetic assistant message with token budgets
+		// Append TOOL and TOOL_OUT lines as synthetic assistant message (simplified - no token budgets)
 		if (meta?.toolMeta) {
-			const toolLines = buildToolLines(meta.toolMeta)
-			if (toolLines && toolLines.length) {
-				window = applyTokenBudgets(window, toolLines)
+			// Simple tool formatting without complex budgeting
+			const toolLines = [
+				`TOOL: ${meta.toolMeta.name}(${JSON.stringify(meta.toolMeta.params || {})})`,
+				...(meta.toolMeta.resultText ? [`TOOL_OUT: ${meta.toolMeta.resultText}`] : []),
+			]
+			if (toolLines.length) {
 				window = [...window, { role: "assistant", content: toolLines.join("\n") }]
 			}
 		}
@@ -391,8 +452,11 @@ export class ConversationMemoryOrchestrator {
 				await this.ingestFact({
 					...input,
 					reference_time: input.reference_time ?? now,
-					context_description: input.context_description ?? "Turn-level extraction",
+					context_description:
+						input.context_description ?? episodeForTurn?.context ?? "Turn-level extraction",
 					source_model: meta?.modelId,
+					episode_id: episodeForTurn?.id,
+					episode_context: episodeForTurn?.context,
 				})
 			} catch (error) {
 				console.error("[ConversationMemoryOrchestrator] Failed to ingest fact:", error)
@@ -424,52 +488,60 @@ export class ConversationMemoryOrchestrator {
 			}
 		}
 
-		// Persist artifact & digest for high-signal tools
-		if (meta?.toolMeta && shouldPersistArtifact(meta.toolMeta.name) && meta.toolMeta.resultText) {
-			try {
-				const { artifactPath, hash } = await persistArtifact(this.workspacePath, meta.toolMeta)
-				const digestText = buildArtifactDigest(meta.toolMeta)
-				const digest: CategorizedFactInput = {
-					content:
-						digestText ||
-						`Tool ${meta.toolMeta.name} output captured (artifact=${artifactPath}, hash=${hash})`,
-					category: "pattern",
-					confidence: 0.6,
-					context_description: "Tool output digest",
-					source_model: meta?.modelId,
-					metadata: {
-						artifact_path: artifactPath,
-						tool: { name: meta.toolMeta.name, params: safeMinify(meta.toolMeta.params) },
-						artifact_hash: hash,
-						data_source: "mcp",
-						persistent: true,
-					},
-				}
-				await this.ingestFact(digest)
-			} catch (e) {
-				console.warn("[ConversationMemory] Artifact persistence failed:", (e as any)?.message || e)
-			}
-		}
+		// Artifact persistence disabled - simplified mode
+		// Complex artifact and digest systems removed for reliability
 
-		// Create pending file reference facts for file-editing tools
-		if (meta?.toolMeta && isFileEditingTool(meta.toolMeta.name)) {
-			const paths = extractFilePaths(meta.toolMeta)
-			for (const p of paths) {
-				try {
-					const fileHash = await computeFileHash(this.workspacePath, p)
-					const fact: CategorizedFactInput = {
-						content: `File changed: ${p}`,
-						category: "pattern",
-						confidence: 0.5,
-						context_description: "File change reference",
-						source_model: meta?.modelId,
-						metadata: { file_path: p, file_hash: fileHash, ref_status: "pending" },
-					}
-					await this.ingestFact(fact)
-				} catch {
-					// ignore missing file or hash errors
-				}
+		// File reference tracking disabled in simplified mode
+		// Removed complex file hash tracking that was causing issues
+	}
+
+	private async detectEpisodeForTurn(fullMessages: Message[], project: ProjectContext, llmOverride?: ILlmProvider) {
+		try {
+			// Build hints provider and context generator on-demand using the override LLM
+			const hintsProvider = this.createHintsProvider()
+			const llm = llmOverride || this.llm
+			if (!llm) return undefined
+			const ctxGen = new EpisodeContextGenerator(llm, hintsProvider)
+			const detector = new EpisodeDetector(ctxGen, this.embedder, llm, this.episodeConfig)
+			const episodes = await detector.detect(fullMessages, this.workspacePath, project)
+			if (!episodes || episodes.length === 0) return undefined
+			return episodes[episodes.length - 1]
+		} catch (e) {
+			return undefined
+		}
+	}
+
+	public async getEpisodeDetails(episodeId: string, limit: number = 5) {
+		try {
+			// Pull all facts for this episode within this workspace
+			const res = (await (this.vectorStore.filter
+				? this.vectorStore.filter(200, { workspace_path: this.workspacePath, episode_id: episodeId } as any)
+				: [])) as any
+			const facts: any[] = Array.isArray(res)
+				? res.map((r: any) => r.payload)
+				: (res.records || []).map((r: any) => r.payload)
+			if (!facts.length) return undefined
+			// Compute timeframe
+			const times = facts
+				.map((f) => new Date(f.reference_time).getTime())
+				.filter((t) => !isNaN(t))
+				.sort()
+			const timeframe = times.length
+				? new Date(times[0]).toLocaleDateString() +
+					(times.length > 1 ? ` - ${new Date(times[times.length - 1]).toLocaleDateString()}` : "")
+				: ""
+			// Sort by temporal score (with confidence) descending
+			const scored = facts
+				.map((f) => ({ f, s: this.temporal.score(f) }))
+				.sort((a, b) => b.s - a.s)
+				.slice(0, Math.max(1, Math.min(20, limit)))
+			return {
+				episode_context: facts[0]?.episode_context || facts[0]?.context_description,
+				timeframe,
+				facts: scored.map((x) => x.f),
 			}
+		} catch {
+			return undefined
 		}
 	}
 
@@ -735,190 +807,8 @@ function isFileEditingTool(name: string): boolean {
 	return ["write_to_file", "apply_diff", "insert_content", "search_and_replace"].includes(name)
 }
 
-function shouldPersistArtifact(name: string): boolean {
-	return isHighSignalTool(name)
-}
-
-function buildToolLines(toolMeta: { name: string; params: any; resultText?: string }): string[] | null {
-	const lines: string[] = []
-	const params = safeMinify(toolMeta.params)
-	lines.push(`TOOL: ${toolMeta.name}(${params ? JSON.stringify(params) : ""})`)
-	if (isHighSignalTool(toolMeta.name) && toolMeta.resultText) {
-		const out = sanitizeOutput(toolMeta.resultText)
-		lines.push("BEGIN_TOOL_OUTPUT")
-		lines.push(out)
-		lines.push("END_TOOL_OUTPUT")
-	}
-	return lines
-}
-
-function sanitizeOutput(text: string): string {
-	let t = text || ""
-	// strip code fences
-	t = t.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ""))
-	// strip ANSI escapes
-	t = stripAnsi(t)
-	// redact obvious secrets
-	t = t.replace(/(api[_-]?key|token|password|secret|bearer)\s*[:=]\s*[^\s'";]+/gi, "$1=[REDACTED]")
-	// redact .env style
-	t = t.replace(/^([A-Z0-9_]+)=(.+)$/gm, "$1=[REDACTED]")
-	return t.trim()
-}
-
-function safeMinify(obj: any): any {
-	try {
-		return JSON.parse(JSON.stringify(obj))
-	} catch {
-		return undefined
-	}
-}
-
-function safeCountTokens(text: string): number {
-	// Approximate tokens as chars/4; avoids async tiktoken in this path
-	return Math.ceil((text || "").length / 4)
-}
-
-function trimToTokenBudget(text: string, budget: number): string {
-	if (!text) return ""
-	let low = 0
-	let high = text.length
-	let best = ""
-	// binary search by char length to approximate token budget
-	while (low <= high) {
-		const mid = Math.floor((low + high) / 2)
-		const slice = text.slice(0, mid)
-		const tok = safeCountTokens(slice)
-		if (tok <= budget) {
-			best = slice
-			low = mid + 1
-		} else {
-			high = mid - 1
-		}
-	}
-	if (best.length < text.length) return best + "\n[truncated]"
-	return best
-}
-
-function applyTokenBudgets(window: Message[], toolLines: string[]): Message[] {
-	const TOTAL = 2000
-	const MCP_BUDGET = 1200
-	const CBS_BUDGET = 800
-	const EXEC_BUDGET = 600
-
-	const winText = window.map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-	let winTokens = safeCountTokens(winText.join("\n"))
-
-	let lines = [...toolLines]
-	const firstLine = lines[0] || ""
-	let toolBudget = 600
-	if (firstLine.includes("use_mcp_tool") || firstLine.includes("access_mcp_resource")) toolBudget = MCP_BUDGET
-	else if (firstLine.includes("codebase_search")) toolBudget = CBS_BUDGET
-	else if (firstLine.includes("execute_command")) toolBudget = EXEC_BUDGET
-
-	const hasOut = lines.includes("BEGIN_TOOL_OUTPUT")
-	if (hasOut) {
-		const begin = lines.indexOf("BEGIN_TOOL_OUTPUT")
-		const end = lines.lastIndexOf("END_TOOL_OUTPUT")
-		if (begin >= 0 && end > begin) {
-			const out = lines.slice(begin + 1, end).join("\n")
-			const trimmed = trimToTokenBudget(out, toolBudget)
-			lines = [...lines.slice(0, begin + 1), trimmed, ...lines.slice(end)]
-		}
-	}
-
-	const toolTokens = safeCountTokens(lines.join("\n"))
-	let total = winTokens + toolTokens
-	let resultWindow = [...window]
-	if (total > TOTAL) {
-		if (resultWindow.length > 3) resultWindow = resultWindow.slice(-3)
-		winTokens = safeCountTokens(resultWindow.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n"))
-		total = winTokens + toolTokens
-		if (total > TOTAL && resultWindow.length > 1) {
-			resultWindow = resultWindow.slice(-1)
-			winTokens = safeCountTokens(resultWindow.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n"))
-			total = winTokens + toolTokens
-		}
-		if (total > TOTAL && hasOut) {
-			// drop output, keep tool line only
-			lines = [lines[0]]
-		}
-	}
-
-	toolLines.length = 0
-	toolLines.push(...lines)
-	return resultWindow
-}
-
-async function persistArtifact(
-	workspacePath: string,
-	toolMeta: { name: string; params: any; resultText?: string },
-): Promise<{ artifactPath: string; hash: string }> {
-	const raw = toolMeta.resultText || ""
-	const crypto = require("crypto")
-	const hash = crypto.createHash("sha256").update(raw).digest("hex")
-	const dir = require("path").join(workspacePath, ".roo-memory", "artifacts")
-	await fs.mkdir(dir, { recursive: true })
-	const base = `${hash}.txt`
-	const metaBase = `${hash}.meta.json`
-	const artifactPath = require("path").join(dir, base)
-	await fs.writeFile(artifactPath, raw, "utf-8")
-	const meta = {
-		tool: { name: toolMeta.name, params: safeMinify(toolMeta.params) },
-		created_at: new Date().toISOString(),
-		hash,
-		workspace_path: workspacePath,
-	}
-	await fs.writeFile(require("path").join(dir, metaBase), JSON.stringify(meta, null, 2), "utf-8")
-	return { artifactPath, hash }
-}
-
-function buildArtifactDigest(toolMeta: { name: string; params: any; resultText?: string }): string {
-	const name = toolMeta.name
-	const raw = toolMeta.resultText || ""
-	// Try JSON-aware summarization
-	try {
-		const parsed = JSON.parse(raw)
-		if (Array.isArray(parsed)) {
-			const count = parsed.length
-			const keys = count > 0 && typeof parsed[0] === "object" ? Object.keys(parsed[0]).slice(0, 6) : []
-			return `Tool ${name} returned ${count} items${keys.length ? ` with keys [${keys.join(", ")}]` : ""}`
-		} else if (parsed && typeof parsed === "object") {
-			const keys = Object.keys(parsed)
-			// common shapes
-			if (Array.isArray((parsed as any).rows)) {
-				const rows = (parsed as any).rows
-				const rowCount = Array.isArray(rows) ? rows.length : 0
-				const rowKeys = rowCount > 0 && typeof rows[0] === "object" ? Object.keys(rows[0]).slice(0, 6) : []
-				return `Tool ${name} returned rows=${rowCount}${rowKeys.length ? ` keys [${rowKeys.join(", ")}]` : ""}`
-			}
-			return `Tool ${name} returned object with keys [${keys.slice(0, 10).join(", ")}]`
-		}
-	} catch {}
-	// Text fallback
-	const preview = (raw || "").trim().split(/\r?\n/).slice(0, 5).join(" ")
-	const short = preview.length > 180 ? preview.slice(0, 180) + "…" : preview
-	return short ? `Tool ${name} output: ${short}` : ""
-}
-
-function extractFilePaths(toolMeta: { name: string; params: any }): string[] {
-	const p: any = toolMeta.params || {}
-	const out: string[] = []
-	if (typeof p.path === "string") out.push(p.path)
-	if (Array.isArray(p.paths)) {
-		for (const x of p.paths) if (typeof x === "string") out.push(x)
-	}
-	// Deduplicate
-	return Array.from(new Set(out))
-}
-
-async function computeFileHash(workspacePath: string, relPath: string): Promise<string> {
-	const crypto = require("crypto")
-	const path = require("path")
-	const fs = require("fs/promises")
-	const abs = path.isAbsolute(relPath) ? relPath : path.join(workspacePath, relPath)
-	const buf = await fs.readFile(abs)
-	return crypto.createHash("sha256").update(buf).digest("hex")
-}
+// Complex artifact persistence functions removed for simplified mode
+// Following Phase 3A strategy - removed over-engineered systems for reliability
 
 export type FilesIndexedUpdate = { path: string; newHash?: string; status: string }
 

@@ -38,11 +38,16 @@ export class QdrantMemoryStore implements IVectorStore {
 			expectedDimension: this.dimension,
 		})
 
-		// BUG FIX: Don't overwrite collection name - keep the workspace-specific name from constructor
-		const originalName = this._collectionName
+		// Use provided name if it's a valid memory collection name, otherwise use instance name
+		const collectionName = name.match(/^ws-.*-memory$/) ? name : this._collectionName
+
+		// Update instance collection name if we're using a different one
+		if (collectionName !== this._collectionName) {
+			this._collectionName = collectionName
+		}
 
 		try {
-			await ensureCollection(this.client, this._collectionName, dimension, {
+			await ensureCollection(this.client, collectionName, dimension, {
 				distance: "Cosine",
 				onDisk: true,
 				hnsw: { m: 64, ef_construct: 512, on_disk: true },
@@ -65,15 +70,28 @@ export class QdrantMemoryStore implements IVectorStore {
 	/**
 	 * CRITICAL FIX: Ensures collection exists before operations
 	 * This prevents "Not Found" errors by validating collection existence
+	 * Enhanced with QdrantClientSingleton integration for better coordination
 	 */
 	private async ensureCollectionExists(): Promise<void> {
 		try {
 			// Test if collection exists by getting its info
 			await this.client.getCollection(this._collectionName)
 		} catch (error) {
-			// Collection doesn't exist - create it
+			// Collection doesn't exist - create it using QdrantClientSingleton coordination
 			console.warn("[QdrantMemoryStore] Collection does not exist, creating:", this._collectionName)
-			await this.ensureCollection(this._collectionName, this.dimension)
+
+			try {
+				// Enhanced: Use QdrantClientSingleton for coordinated creation
+				await QdrantClientSingleton.ensureCollection(this._collectionName, this.workspacePath, this.dimension, {
+					distance: "Cosine",
+					onDisk: true,
+					hnsw: { m: 64, ef_construct: 512, on_disk: true },
+				})
+			} catch (coordinationError) {
+				// Fallback to original method if singleton coordination fails
+				console.warn("[QdrantMemoryStore] Singleton coordination failed, using fallback:", coordinationError)
+				await this.ensureCollection(this._collectionName, this.dimension)
+			}
 		}
 	}
 
@@ -219,6 +237,46 @@ export class QdrantMemoryStore implements IVectorStore {
 	}
 
 	/**
+	 * Attempts graceful recovery from operation failures
+	 */
+	private async attemptOperationRecovery(operationType: string, error: unknown): Promise<boolean> {
+		console.log("[QdrantMemoryStore] Attempting operation recovery", {
+			operationType,
+			collectionName: this._collectionName,
+			error: error instanceof Error ? error.message : String(error),
+		})
+
+		try {
+			// Check if it's a collection-related error that can be recovered
+			const errorMsg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+
+			if (errorMsg.includes("not found") || errorMsg.includes("does not exist")) {
+				// Collection doesn't exist - attempt recreation
+				console.log("[QdrantMemoryStore] Collection not found, attempting recreation")
+				await this.ensureCollectionExists()
+				return true
+			}
+
+			if (errorMsg.includes("dimension") || errorMsg.includes("vector")) {
+				// Dimension-related error - attempt resolution
+				console.log("[QdrantMemoryStore] Dimension-related error, attempting resolution")
+				QdrantClientSingleton.forceCleanupCollection(this._collectionName, this.workspacePath)
+				await this.ensureCollectionExists()
+				return true
+			}
+
+			return false
+		} catch (recoveryError) {
+			console.error("[QdrantMemoryStore] Operation recovery failed", {
+				operationType,
+				collectionName: this._collectionName,
+				recoveryError: recoveryError instanceof Error ? recoveryError.message : String(recoveryError),
+			})
+			return false
+		}
+	}
+
+	/**
 	 * Clears all points from the collection (if supported by client)
 	 */
 	async clearCollection(): Promise<void> {
@@ -235,6 +293,8 @@ export class QdrantMemoryStore implements IVectorStore {
 	 */
 	async deleteCollection(): Promise<void> {
 		try {
+			// Clean up singleton state first
+			QdrantClientSingleton.forceCleanupCollection(this._collectionName, this.workspacePath)
 			await (this.client as any).deleteCollection?.(this._collectionName)
 		} catch (error) {
 			console.error(`[QdrantMemoryStore] Failed to delete collection ${this._collectionName}:`, error)

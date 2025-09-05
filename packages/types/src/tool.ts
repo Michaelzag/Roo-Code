@@ -34,6 +34,7 @@ export const toolNames = [
 	"fetch_instructions",
 	"codebase_search",
 	"memory_search",
+	"memory_episode_details",
 	"update_todo_list",
 	"generate_image",
 ] as const

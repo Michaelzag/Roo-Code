@@ -48,11 +48,55 @@ vi.mock("../../../utils/path", () => {
 // Mock ContextProxy
 vi.mock("../../../core/config/ContextProxy")
 
-// Mock service factory
-vi.mock("../service-factory")
+// Mock service factory with comprehensive mocks to prevent timeouts
+vi.mock("../service-factory", () => ({
+	ConversationMemoryServiceFactory: vi.fn().mockImplementation(() => ({
+		createEmbedder: vi.fn(() => ({
+			embed: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+			dimension: 3,
+		})),
+		createVectorStore: vi.fn(() => ({
+			ensureCollection: vi.fn().mockResolvedValue(undefined),
+			collectionName: vi.fn().mockReturnValue("test-collection"),
+		})),
+		createLlmProviderFromEnv: vi.fn(() => ({
+			generateJson: vi.fn().mockResolvedValue({ facts: [] }),
+		})),
+	})),
+}))
 
-// Mock code-index config manager
-vi.mock("../../code-index/config-manager")
+// Mock code-index config manager with complete configuration
+vi.mock("../../code-index/config-manager", () => ({
+	CodeIndexConfigManager: vi.fn().mockImplementation(() => ({
+		isFeatureConfigured: true,
+		isFeatureEnabled: true,
+		qdrantConfig: { url: "http://localhost:6333", apiKey: "test" },
+		currentModelDimension: 3,
+		getConfig: vi.fn(() => ({
+			embedderProvider: "openai",
+			modelId: "text-embedding-ada-002",
+			openAiOptions: { openAiNativeApiKey: "test-key" },
+		})),
+	})),
+}))
+
+// Mock orchestrator to prevent initialization timeouts
+vi.mock("../orchestrator", () => ({
+	ConversationMemoryOrchestrator: vi.fn().mockImplementation(() => ({
+		start: vi.fn().mockResolvedValue(undefined),
+		getInitializationStatus: vi.fn().mockReturnValue({
+			isInitialized: true,
+			isInitializing: false,
+			error: null,
+		}),
+		processTurn: vi.fn().mockResolvedValue(undefined),
+		search: vi.fn().mockResolvedValue([]),
+	})),
+}))
+
+// Ensure test environment is detected properly
+process.env.NODE_ENV = "test"
+process.env.VITEST = "true"
 
 describe("ConversationMemoryManager", () => {
 	let mockContext: any

@@ -18,7 +18,7 @@ export class ConversationFactExtractor {
 				return facts
 					.map((f: any) => ({
 						content: typeof f?.content === "string" ? f.content.trim() : "",
-						category: typeof f?.category === "string" ? (f.category as any) : "pattern",
+						category: this.validateCategory(f?.category),
 						confidence: typeof f?.confidence === "number" ? Math.min(1, Math.max(0, f.confidence)) : 0.7,
 					}))
 					.filter((f: CategorizedFactInput) => f.content.length > 0)
@@ -46,14 +46,13 @@ export class ConversationFactExtractor {
 			const json = await llm.generateJson(prompt, { temperature: 0.1, max_tokens: 1500 })
 			console.log("[ConversationFactExtractor] Provider response:", JSON.stringify(json))
 			const facts = Array.isArray(json?.facts) ? json.facts : []
-			return facts
+			const result = facts
 				.map((f: any) => ({
 					content: typeof f?.content === "string" ? f.content.trim() : "",
-					category: typeof f?.category === "string" ? (f.category as any) : "pattern",
+					category: this.validateCategory(f?.category),
 					confidence: typeof f?.confidence === "number" ? Math.min(1, Math.max(0, f.confidence)) : 0.7,
 				}))
 				.filter((f: CategorizedFactInput) => f.content.length > 0)
-			const result = facts.filter((f: any) => f.content && f.content.length > 0)
 			console.log("[ConversationFactExtractor] Returning", result.length, "valid facts")
 			return result
 		} catch (error) {
@@ -82,6 +81,23 @@ export class ConversationFactExtractor {
 			facts.push({ content: "Active debugging context detected", category: "debugging", confidence: 0.5 })
 		}
 		return facts
+	}
+
+	private validateCategory(category: any): string {
+		const validCategories = [
+			"infrastructure",
+			"architecture",
+			"debugging",
+			"pattern",
+			"workflow",
+			"test",
+			"requirement",
+			"solution",
+		]
+		if (typeof category === "string" && validCategories.includes(category)) {
+			return category
+		}
+		return "pattern" // Default fallback
 	}
 
 	private buildPrompt(messages: Message[], project: ProjectContext): string {
