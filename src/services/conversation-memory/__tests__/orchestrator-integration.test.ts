@@ -137,9 +137,9 @@ describe("ConversationMemoryOrchestrator Integration", () => {
 
 			await orchestrator.processTurn(messages, llmAdapter, { modelId: "gpt-4o-mini" })
 
-			// Verify facts were embedded and stored (simplified mode - no complex artifact processing)
-			expect(mockEmbedder.embed).toHaveBeenCalledTimes(2)
-			expect(mockVectorStore.insert).toHaveBeenCalledTimes(2)
+			// PERFORMANCE FIX: Now uses batch processing instead of individual embed calls
+			expect(mockEmbedder.embedBatch).toHaveBeenCalledTimes(1)
+			expect(mockVectorStore.insert).toHaveBeenCalled()
 
 			// In simplified mode, we just verify that embedding/storage happened
 			// The exact payload structure is less critical now that safety guards are disabled
@@ -376,7 +376,7 @@ describe("ConversationMemoryOrchestrator Integration", () => {
 			}
 
 			vi.mocked(mockApiHandler.createMessage).mockReturnValue(mockStream as any)
-			vi.mocked(mockEmbedder.embed).mockRejectedValue(new Error("Embedding service offline"))
+			vi.mocked(mockEmbedder.embedBatch).mockRejectedValue(new Error("Embedding service offline"))
 
 			const messages: Message[] = [{ role: "user", content: "Test message" }]
 

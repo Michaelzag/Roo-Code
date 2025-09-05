@@ -31,7 +31,7 @@ export class ConversationMemoryServiceFactory {
 			}
 
 			const fakeContext = {
-				globalStorageUri: { fsPath: require("os").tmpdir() },
+				globalStorageUri: vscode.Uri.file(require("os").tmpdir()),
 				subscriptions: [],
 				globalState: {
 					get: () => undefined,

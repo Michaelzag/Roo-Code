@@ -76,7 +76,9 @@ describe("ConversationMemory Turn Processing (Integration-lite)", () => {
 
 	it("processes MCP tool metadata without artifact persistence", async () => {
 		llm = {
-			generateJson: vi.fn().mockResolvedValue({ facts: [] }),
+			generateJson: vi.fn().mockResolvedValue({
+				facts: [{ content: "MCP tool used", category: "pattern", confidence: 0.8 }],
+			}),
 		}
 		const messages = [{ role: "assistant" as const, content: "Using MCP tool" }]
 		await orchestrator.processTurn(messages, llm, {

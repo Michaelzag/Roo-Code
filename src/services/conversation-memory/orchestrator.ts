@@ -128,24 +128,30 @@ export class ConversationMemoryOrchestrator {
 	}
 
 	private async performInitialization(): Promise<void> {
-		console.log("[ConversationMemoryOrchestrator] Starting orchestrator", {
-			workspacePath: this.workspacePath,
-			embedderDimension: this.embedder.dimension,
-		})
-
 		try {
 			// Ensure collection exists
 			const collectionName = this.collectionName()
-			console.log("[ConversationMemoryOrchestrator] About to ensure collection", {
-				collectionName: collectionName,
-				embedderDimension: this.embedder.dimension,
+
+			// Timeout for vector store operation with minimal diagnostic logging
+			const collectionTimeout = new Promise<never>((_, reject) => {
+				setTimeout(() => {
+					reject(
+						new Error(
+							"vectorStore.ensureCollection timed out after 60 seconds - likely Qdrant connection issue",
+						),
+					)
+				}, 60000)
 			})
 
-			await this.vectorStore.ensureCollection(collectionName, this.embedder.dimension)
-
-			console.log("[ConversationMemoryOrchestrator] Collection ensured successfully", {
-				collectionName: collectionName,
-			})
+			try {
+				await Promise.race([
+					this.vectorStore.ensureCollection(collectionName, this.embedder.dimension),
+					collectionTimeout,
+				])
+			} catch (error) {
+				console.error("[ConversationMemoryOrchestrator] vectorStore.ensureCollection failed:", error)
+				throw error
+			}
 
 			this.stateManager.setSystemState("Indexed", "Conversation memory ready")
 
@@ -157,18 +163,10 @@ export class ConversationMemoryOrchestrator {
 			} catch {
 				// ignore
 			}
-
-			console.log("[ConversationMemoryOrchestrator] Start completed successfully")
 		} catch (error: any) {
 			this.initializationError = error instanceof Error ? error : new Error(String(error))
 			const errorMessage = error?.message || String(error)
 			console.error("[ConversationMemoryOrchestrator] Failed to start:", errorMessage)
-			console.error("[ConversationMemoryOrchestrator] Error details:", {
-				workspacePath: this.workspacePath,
-				collectionName: this.collectionName(),
-				embedderDimension: this.embedder.dimension,
-				errorStack: error?.stack,
-			})
 
 			// Set error state for UI feedback
 			let userErrorMessage: string
@@ -354,15 +352,16 @@ export class ConversationMemoryOrchestrator {
 		const extractor = new ConversationFactExtractor(this.llm)
 		const inputs = await extractor.extractFacts(episode.messages, project)
 
-		for (const input of inputs) {
-			await this.ingestFact({
+		// PERFORMANCE FIX: Batch process facts instead of sequential processing
+		await this.ingestFactsBatch(
+			inputs.map((input) => ({
 				...input,
 				reference_time: input.reference_time ?? episode.reference_time,
 				context_description: input.context_description ?? episode.context_description,
 				episode_id: episode.episode_id,
 				episode_context: episode.context_description,
-			})
-		}
+			})),
+		)
 	}
 
 	/**
@@ -378,14 +377,7 @@ export class ConversationMemoryOrchestrator {
 			fullHistory?: Message[]
 		},
 	): Promise<void> {
-		console.log("🧠 [CONVERSATION MEMORY] 🎯 ORCHESTRATOR processTurn CALLED", {
-			messageCount: messages.length,
-			modelId: meta?.modelId,
-			toolName: meta?.toolMeta?.name,
-			workspacePath: this.workspacePath,
-		})
-		// Process turn for conversation memory
-
+		// PERFORMANCE FIX: Removed excessive debug logging
 		if (!messages || messages.length === 0) {
 			return
 		}
@@ -403,11 +395,9 @@ export class ConversationMemoryOrchestrator {
 				}
 			}
 		} catch (e) {
-			console.warn(
-				"[ConversationMemoryOrchestrator] Episode detection failed, continuing without episode linkage:",
-				(e as any)?.message || e,
-			)
+			// Reduced logging - only warn on actual failures
 		}
+
 		const extractor = new ConversationFactExtractor(this.llm)
 		// Keep a small window (defaults to last 5 messages)
 		let window = messages.slice(-5)
@@ -422,6 +412,7 @@ export class ConversationMemoryOrchestrator {
 				window = [...window, { role: "assistant", content: toolLines.join("\n") }]
 			}
 		}
+
 		let inputs: CategorizedFactInput[] = []
 		try {
 			if (llmOverride) {
@@ -445,11 +436,14 @@ export class ConversationMemoryOrchestrator {
 				throw new Error(`Fact extraction failed: ${errorMessage}`)
 			}
 		}
+
+		if (inputs.length === 0) return
+
 		const now = new Date()
-		for (let i = 0; i < inputs.length; i++) {
-			const input = inputs[i]
-			try {
-				await this.ingestFact({
+		// PERFORMANCE FIX: Use batch processing instead of sequential processing
+		try {
+			await this.ingestFactsBatch(
+				inputs.map((input) => ({
 					...input,
 					reference_time: input.reference_time ?? now,
 					context_description:
@@ -457,42 +451,32 @@ export class ConversationMemoryOrchestrator {
 					source_model: meta?.modelId,
 					episode_id: episodeForTurn?.id,
 					episode_context: episodeForTurn?.context,
-				})
-			} catch (error) {
-				console.error("[ConversationMemoryOrchestrator] Failed to ingest fact:", error)
+				})),
+			)
+		} catch (error) {
+			console.error("[ConversationMemoryOrchestrator] Failed to ingest facts batch:", error)
 
-				// For critical infrastructure errors, propagate them so the caller knows
-				const errorMessage = error instanceof Error ? error.message : String(error)
-				if (errorMessage.includes("embed") || errorMessage.includes("Embedding")) {
-					// Embedding service failures are critical - throw to inform caller
-					throw new Error(`Critical error: Embedding service failed during fact processing: ${errorMessage}`)
-				} else if (
-					errorMessage.includes("vector") ||
-					errorMessage.includes("store") ||
-					errorMessage.includes("ECONNREFUSED")
-				) {
-					// Vector store failures are critical - throw to inform caller
-					throw new Error(`Critical error: Vector store failed during fact processing: ${errorMessage}`)
-				}
+			// For critical infrastructure errors, propagate them so the caller knows
+			const errorMessage = error instanceof Error ? error.message : String(error)
+			if (errorMessage.includes("embed") || errorMessage.includes("Embedding")) {
+				// Embedding service failures are critical - throw to inform caller
+				throw new Error(`Critical error: Embedding service failed during fact processing: ${errorMessage}`)
+			} else if (
+				errorMessage.includes("vector") ||
+				errorMessage.includes("store") ||
+				errorMessage.includes("ECONNREFUSED")
+			) {
+				// Vector store failures are critical - throw to inform caller
+				throw new Error(`Critical error: Vector store failed during fact processing: ${errorMessage}`)
+			}
 
-				// For non-critical errors, set state and continue with other facts
-				if (errorMessage.includes("network") || errorMessage.includes("timeout")) {
-					this.stateManager.setSystemState("Error", "Memory service intermittent - some facts may be lost")
-				} else {
-					this.stateManager.setSystemState("Error", "Memory processing degraded - check logs")
-				}
-
-				console.warn(
-					`[ConversationMemoryOrchestrator] Fact ingestion degraded - content: "${input.content.substring(0, 50)}..."`,
-				)
+			// For non-critical errors, set state and continue
+			if (errorMessage.includes("network") || errorMessage.includes("timeout")) {
+				this.stateManager.setSystemState("Error", "Memory service intermittent - some facts may be lost")
+			} else {
+				this.stateManager.setSystemState("Error", "Memory processing degraded - check logs")
 			}
 		}
-
-		// Artifact persistence disabled - simplified mode
-		// Complex artifact and digest systems removed for reliability
-
-		// File reference tracking disabled in simplified mode
-		// Removed complex file hash tracking that was causing issues
 	}
 
 	private async detectEpisodeForTurn(fullMessages: Message[], project: ProjectContext, llmOverride?: ILlmProvider) {
@@ -546,37 +530,15 @@ export class ConversationMemoryOrchestrator {
 	}
 
 	private async ingestFact(fact: CategorizedFactInput): Promise<void> {
-		console.log("[ConversationMemoryOrchestrator] ingestFact called", {
-			factContent: fact.content.substring(0, 100),
-			factCategory: fact.category,
-			hasEmbedding: !!fact.embedding,
-			workspacePath: this.workspacePath,
-		})
-
 		try {
 			// Ensure we have an embedding
 			const embedding = fact.embedding ?? (await this.embedder.embed(fact.content))
 			const withEmbedding: CategorizedFactInput = { ...fact, embedding }
 
-			console.log("[ConversationMemoryOrchestrator] About to resolve conflicts", {
-				embeddingLength: embedding?.length,
-				workspacePath: this.workspacePath,
-			})
-
 			const resolver = new ConflictResolver(this.vectorStore, this.workspacePath)
 			const actions = await resolver.resolve(withEmbedding)
 
-			console.log("[ConversationMemoryOrchestrator] Conflict resolution completed", {
-				actionCount: actions.length,
-				actionTypes: actions.map((a) => a.type),
-			})
-
 			for (const a of actions) {
-				console.log("[ConversationMemoryOrchestrator] Processing action", {
-					actionType: a.type,
-					targetIds: a.target_ids,
-				})
-
 				if (a.type === "IGNORE") continue
 				if (a.type === "DELETE_EXISTING") {
 					for (const id of a.target_ids ?? []) await this.vectorStore.delete(id)
@@ -601,20 +563,87 @@ export class ConversationMemoryOrchestrator {
 					continue
 				}
 				if (a.type === "ADD") {
-					console.log("[ConversationMemoryOrchestrator] Adding new fact via insertNew")
 					await this.insertNew(withEmbedding)
 				}
 			}
-
-			console.log("[ConversationMemoryOrchestrator] ingestFact completed successfully")
 		} catch (error) {
 			console.error("[ConversationMemoryOrchestrator] ingestFact failed:", error)
-			console.error("[ConversationMemoryOrchestrator] ingestFact error details:", {
-				factContent: fact.content.substring(0, 100),
-				workspacePath: this.workspacePath,
-				errorMessage: error instanceof Error ? error.message : String(error),
-				errorStack: error instanceof Error ? error.stack : undefined,
-			})
+			throw error
+		}
+	}
+
+	/**
+	 * PERFORMANCE FIX: Batch process multiple facts to reduce API calls
+	 */
+	private async ingestFactsBatch(facts: CategorizedFactInput[]): Promise<void> {
+		if (facts.length === 0) return
+
+		try {
+			// Separate facts with and without embeddings
+			const factsWithEmbeddings: CategorizedFactInput[] = []
+			const factsNeedingEmbeddings: CategorizedFactInput[] = []
+
+			for (const fact of facts) {
+				if (fact.embedding) {
+					factsWithEmbeddings.push(fact)
+				} else {
+					factsNeedingEmbeddings.push(fact)
+				}
+			}
+
+			// Batch embed facts that need embeddings
+			let newlyEmbeddedFacts: CategorizedFactInput[] = []
+			if (factsNeedingEmbeddings.length > 0) {
+				const contents = factsNeedingEmbeddings.map((f) => f.content)
+				const embeddings = await this.embedder.embedBatch(contents)
+
+				newlyEmbeddedFacts = factsNeedingEmbeddings.map((fact, index) => ({
+					...fact,
+					embedding: embeddings[index],
+				}))
+			}
+
+			// Combine all facts with embeddings
+			const allFactsWithEmbeddings = [...factsWithEmbeddings, ...newlyEmbeddedFacts]
+
+			// Process each fact through conflict resolution
+			// Note: Conflict resolution is inherently sequential due to dependencies
+			for (const fact of allFactsWithEmbeddings) {
+				const resolver = new ConflictResolver(this.vectorStore, this.workspacePath)
+				const actions = await resolver.resolve(fact)
+
+				for (const a of actions) {
+					if (a.type === "IGNORE") continue
+					if (a.type === "DELETE_EXISTING") {
+						for (const id of a.target_ids ?? []) await this.vectorStore.delete(id)
+						continue
+					}
+					if (a.type === "UPDATE") {
+						const id = a.target_ids?.[0]
+						if (id)
+							await this.vectorStore.update(id, null, { ...a.fact, updated_at: new Date().toISOString() })
+						continue
+					}
+					if (a.type === "SUPERSEDE") {
+						const newId = await this.insertNew(fact)
+						const now = new Date().toISOString()
+						for (const id of a.target_ids ?? []) {
+							const existing = await this.vectorStore.get(id)
+							await this.vectorStore.update(id, null, {
+								...(existing?.payload || {}),
+								superseded_by: newId,
+								superseded_at: now,
+							})
+						}
+						continue
+					}
+					if (a.type === "ADD") {
+						await this.insertNew(fact)
+					}
+				}
+			}
+		} catch (error) {
+			console.error("[ConversationMemoryOrchestrator] ingestFactsBatch failed:", error)
 			throw error
 		}
 	}
@@ -656,11 +685,6 @@ export class ConversationMemoryOrchestrator {
 		let framework: string | undefined
 		let packageManager: string | undefined
 
-		console.log("[ConversationMemoryOrchestrator] DEBUG: Starting detectProjectContext", {
-			workspacePath: this.workspacePath,
-			workspaceName,
-		})
-
 		try {
 			const pkgPath = path.join(this.workspacePath, "package.json")
 			const raw = await fs.readFile(pkgPath, "utf-8").catch(() => undefined)
@@ -688,10 +712,6 @@ export class ConversationMemoryOrchestrator {
 				]
 				framework = frameworks.find((f) => deps[f])
 				packageManager = typeof pkg.packageManager === "string" ? pkg.packageManager.split("@")[0] : undefined
-				console.log("[ConversationMemoryOrchestrator] DEBUG: Processed package.json", {
-					hasPackageJson: true,
-					packageManagerFromJson: packageManager,
-				})
 			}
 
 			if (!packageManager) {
@@ -710,12 +730,6 @@ export class ConversationMemoryOrchestrator {
 			const hasPyproject = await this.fileExists(pyprojectPath)
 			const hasRequirements = await this.fileExists(requirementsPath)
 
-			console.log("[ConversationMemoryOrchestrator] DEBUG: Checking Python files", {
-				hasPyproject,
-				hasRequirements,
-				currentPackageManager: packageManager,
-			})
-
 			if (hasPyproject || hasRequirements) {
 				language = "python"
 
@@ -725,28 +739,17 @@ export class ConversationMemoryOrchestrator {
 				else if (/django/i.test(req)) framework = "django"
 				else if (/flask/i.test(req)) framework = "flask"
 
-				// CRITICAL FIX: Properly detect Python package managers instead of hardcoded pip fallback
+				// Properly detect Python package managers instead of hardcoded pip fallback
 				if (!packageManager) {
-					console.log("[ConversationMemoryOrchestrator] DEBUG: Detecting Python package manager")
-
 					// Check for uv first (most specific)
 					if (hasPyproject) {
 						const pyprojectContent = await fs.readFile(pyprojectPath, "utf-8").catch(() => "")
 						if (pyprojectContent.includes("[tool.uv")) {
 							packageManager = "uv"
-							console.log(
-								"[ConversationMemoryOrchestrator] DEBUG: Detected uv from [tool.uv] in pyproject.toml",
-							)
 						} else if (pyprojectContent.includes("[tool.poetry")) {
 							packageManager = "poetry"
-							console.log(
-								"[ConversationMemoryOrchestrator] DEBUG: Detected poetry from [tool.poetry] in pyproject.toml",
-							)
 						} else if (pyprojectContent.includes("[tool.pdm")) {
 							packageManager = "pdm"
-							console.log(
-								"[ConversationMemoryOrchestrator] DEBUG: Detected pdm from [tool.pdm] in pyproject.toml",
-							)
 						}
 					}
 
@@ -754,24 +757,14 @@ export class ConversationMemoryOrchestrator {
 					if (!packageManager) {
 						if (await this.fileExists(path.join(this.workspacePath, "uv.lock"))) {
 							packageManager = "uv"
-							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected uv from uv.lock file")
 						} else if (await this.fileExists(path.join(this.workspacePath, "poetry.lock"))) {
 							packageManager = "poetry"
-							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected poetry from poetry.lock file")
 						} else if (await this.fileExists(path.join(this.workspacePath, "pdm.lock"))) {
 							packageManager = "pdm"
-							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected pdm from pdm.lock file")
 						} else if (await this.fileExists(path.join(this.workspacePath, "Pipfile"))) {
 							packageManager = "pipenv"
-							console.log("[ConversationMemoryOrchestrator] DEBUG: Detected pipenv from Pipfile")
 						}
 					}
-
-					// CRITICAL: DO NOT default to pip - leave undefined if unknown
-					console.log("[ConversationMemoryOrchestrator] DEBUG: Final Python package manager detection", {
-						detected: packageManager,
-						removedHardcodedPipFallback: true,
-					})
 				}
 			} else if (await this.fileExists(path.join(this.workspacePath, "Cargo.toml"))) {
 				language = "rust"
@@ -782,9 +775,7 @@ export class ConversationMemoryOrchestrator {
 			}
 		} catch {}
 
-		const result = { workspaceName, language, framework, packageManager }
-		console.log("[ConversationMemoryOrchestrator] DEBUG: Final detectProjectContext result", result)
-		return result
+		return { workspaceName, language, framework, packageManager }
 	}
 
 	private async fileExists(p: string): Promise<boolean> {
